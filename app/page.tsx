@@ -1,7 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { stateByName, stateId, type StateRecord } from "./data";
+import usaMap from "@svg-maps/usa.states-territories";
+import { useCallback, useEffect, useState } from "react";
+import { stateByName, type StateRecord } from "./data";
+import "./map.css";
 
 type CityLocation = { name: string; lat: number; lon: number };
 type LocationMap = Map<string, CityLocation>;
@@ -43,67 +45,36 @@ function StateMap({ selected, interactive, onSelect, className = "" }: {
   onSelect?: (state: StateRecord) => void;
   className?: string;
 }) {
-  const [svg, setSvg] = useState("");
-  const mapRef = useRef<HTMLDivElement>(null);
+  const states = usaMap.locations.flatMap((location) => {
+    const state = stateByName.get(location.name);
+    return state ? [{ location, state }] : [];
+  });
 
-  // The source SVG positions its 50 state paths inside a transformed group.
-  // Keep the complete map in view without relying on SVGPathElement#getBBox,
-  // which is unavailable in some production rendering environments.
-  const fullMapViewBox = "-70 65 1860 440";
-
-  useEffect(() => {
-    fetch("/us-states.svg").then((response) => response.text()).then(setSvg).catch(() => undefined);
-  }, []);
-
-  useEffect(() => {
-    if (!svg || !mapRef.current) return;
-    const root = mapRef.current.querySelector("svg");
-    if (!root) return;
-    root.setAttribute("viewBox", fullMapViewBox);
-    root.setAttribute("preserveAspectRatio", "xMidYMid meet");
-    root.setAttribute("role", "img");
-    root.setAttribute("aria-label", selected ? `Map of ${selected.name}` : "Administrative map of the United States");
-    const statePaths = Array.from(root.querySelectorAll<SVGPathElement>("#states > path"));
-    statePaths.forEach((path) => {
-      const state = stateByName.get(path.id.replaceAll("_", " "));
-      if (!state) return;
-      path.classList.toggle("state-focus", selected?.abbr === state.abbr);
-      path.setAttribute("aria-label", state.name);
-      if (!interactive) return;
-      path.setAttribute("tabindex", "0");
-      path.setAttribute("role", "button");
-      const choose = () => onSelect?.(state);
-      const keydown = (event: Event) => {
-        const keyboardEvent = event as KeyboardEvent;
-        if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
-          keyboardEvent.preventDefault();
-          choose();
-        }
-      };
-      path.addEventListener("click", choose);
-      path.addEventListener("keydown", keydown);
-    });
-    if (selected) {
-      const selectedPath = root.querySelector<SVGPathElement>(`#${stateId(selected.name)}`);
-      if (selectedPath) {
-        const svgBox = root.getBoundingClientRect();
-        const pathBox = selectedPath.getBoundingClientRect();
-        if (svgBox.width && svgBox.height && pathBox.width && pathBox.height) {
-          const [viewX, viewY, viewWidth, viewHeight] = fullMapViewBox.split(" ").map(Number);
-          const x = viewX + ((pathBox.left - svgBox.left) / svgBox.width) * viewWidth;
-          const y = viewY + ((pathBox.top - svgBox.top) / svgBox.height) * viewHeight;
-          const width = (pathBox.width / svgBox.width) * viewWidth;
-          const height = (pathBox.height / svgBox.height) * viewHeight;
-          const padding = Math.max(width, height) * 0.22;
-          root.setAttribute("viewBox", `${x - padding} ${y - padding} ${width + padding * 2} ${height + padding * 2}`);
-        }
-      }
-    }
-    return () => statePaths.forEach((path) => path.replaceWith(path.cloneNode(true)));
-  }, [svg, selected, interactive, onSelect]);
-
-  if (!svg) return <div className="map-loading" role="status">Loading the map…</div>;
-  return <div ref={mapRef} className={`map-svg-wrap ${className}`} dangerouslySetInnerHTML={{ __html: svg }} />;
+  return <div className={`map-svg-wrap ${className}`}>
+    <svg viewBox={usaMap.viewBox} role="img" aria-label={selected ? `Map highlighting ${selected.name}` : "Interactive administrative map of the United States"}>
+      {states.map(({ location, state }) => {
+        const choose = () => interactive && onSelect?.(state);
+        return <path
+          key={state.abbr}
+          id={`state-${location.id}`}
+          d={location.path}
+          className={`state-shape${selected?.abbr === state.abbr ? " state-focus" : ""}`}
+          aria-label={state.name}
+          role={interactive ? "button" : undefined}
+          tabIndex={interactive ? 0 : undefined}
+          onClick={choose}
+          onKeyDown={(event) => {
+            if (interactive && (event.key === "Enter" || event.key === " ")) {
+              event.preventDefault();
+              choose();
+            }
+          }}
+        >
+          <title>{state.name}</title>
+        </path>;
+      })}
+    </svg>
+  </div>;
 }
 
 function getPositionedLocations(state: StateRecord, locations: LocationMap) {
