@@ -46,6 +46,11 @@ function StateMap({ selected, interactive, onSelect, className = "" }: {
   const [svg, setSvg] = useState("");
   const mapRef = useRef<HTMLDivElement>(null);
 
+  // The source SVG positions its 50 state paths inside a transformed group.
+  // Keep the complete map in view without relying on SVGPathElement#getBBox,
+  // which is unavailable in some production rendering environments.
+  const fullMapViewBox = "-70 65 1860 440";
+
   useEffect(() => {
     fetch("/us-states.svg").then((response) => response.text()).then(setSvg).catch(() => undefined);
   }, []);
@@ -54,6 +59,8 @@ function StateMap({ selected, interactive, onSelect, className = "" }: {
     if (!svg || !mapRef.current) return;
     const root = mapRef.current.querySelector("svg");
     if (!root) return;
+    root.setAttribute("viewBox", fullMapViewBox);
+    root.setAttribute("preserveAspectRatio", "xMidYMid meet");
     root.setAttribute("role", "img");
     root.setAttribute("aria-label", selected ? `Map of ${selected.name}` : "Administrative map of the United States");
     const statePaths = Array.from(root.querySelectorAll<SVGPathElement>("#states > path"));
@@ -76,22 +83,21 @@ function StateMap({ selected, interactive, onSelect, className = "" }: {
       path.addEventListener("click", choose);
       path.addEventListener("keydown", keydown);
     });
-    const mapStates = statePaths.filter((path) => stateByName.has(path.id.replaceAll("_", " ")));
     if (selected) {
       const selectedPath = root.querySelector<SVGPathElement>(`#${stateId(selected.name)}`);
       if (selectedPath) {
-        const box = selectedPath.getBBox();
-        const padding = Math.max(box.width, box.height) * 0.18;
-        root.setAttribute("viewBox", `${box.x - padding} ${box.y - padding} ${box.width + padding * 2} ${box.height + padding * 2}`);
+        const svgBox = root.getBoundingClientRect();
+        const pathBox = selectedPath.getBoundingClientRect();
+        if (svgBox.width && svgBox.height && pathBox.width && pathBox.height) {
+          const [viewX, viewY, viewWidth, viewHeight] = fullMapViewBox.split(" ").map(Number);
+          const x = viewX + ((pathBox.left - svgBox.left) / svgBox.width) * viewWidth;
+          const y = viewY + ((pathBox.top - svgBox.top) / svgBox.height) * viewHeight;
+          const width = (pathBox.width / svgBox.width) * viewWidth;
+          const height = (pathBox.height / svgBox.height) * viewHeight;
+          const padding = Math.max(width, height) * 0.22;
+          root.setAttribute("viewBox", `${x - padding} ${y - padding} ${width + padding * 2} ${height + padding * 2}`);
+        }
       }
-    } else if (mapStates.length) {
-      const boxes = mapStates.map((path) => path.getBBox());
-      const minX = Math.min(...boxes.map((box) => box.x));
-      const minY = Math.min(...boxes.map((box) => box.y));
-      const maxX = Math.max(...boxes.map((box) => box.x + box.width));
-      const maxY = Math.max(...boxes.map((box) => box.y + box.height));
-      const padding = Math.max(maxX - minX, maxY - minY) * 0.08;
-      root.setAttribute("viewBox", `${minX - padding} ${minY - padding} ${maxX - minX + padding * 2} ${maxY - minY + padding * 2}`);
     }
     return () => statePaths.forEach((path) => path.replaceWith(path.cloneNode(true)));
   }, [svg, selected, interactive, onSelect]);
