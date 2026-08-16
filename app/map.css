@@ -1,0 +1,34 @@
+.map-svg-wrap .state-shape {
+  fill: #f8f6ef;
+  stroke: #638486;
+  stroke-width: 1.15;
+  vector-effect: non-scaling-stroke;
+  transition: fill 180ms ease, stroke 180ms ease, filter 180ms ease;
+  outline: none;
+}
+
+.map-svg-wrap .state-shape[role="button"] {
+  cursor: pointer;
+}
+
+.map-svg-wrap .state-shape[role="button"]:hover,
+.map-svg-wrap .state-shape[role="button"]:focus {
+  fill: #ed7659;
+  stroke: #9c4a39;
+  filter: drop-shadow(0 4px 4px rgba(23, 37, 42, 0.18));
+}
+
+.map-svg-wrap .state-shape.state-focus {
+  fill: #ed7659;
+  stroke: #9c4a39;
+}
+
+.detail-svg .state-shape {
+  opacity: 0.08;
+}
+
+.detail-svg .state-shape.state-focus {
+  fill: #bad2ce;
+  opacity: 1;
+}
+
