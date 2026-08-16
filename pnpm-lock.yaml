@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@svg-maps/usa.states-territories':
+        specifier: 2.0.0
+        version: 2.0.0
       drizzle-orm:
         specifier: 0.45.2
         version: 0.45.2
@@ -925,6 +928,9 @@ packages:
 
   '@speed-highlight/core@1.2.24':
     resolution: {integrity: sha512-qeW2e1l78afw8VhRPfPQ1Gjj+KU5XFQ/OFV5ti6eTa9bruO7mJyZtA4vw0ofqmA3tKCkROE9xLk3VZoeRc98nw==}
+
+  '@svg-maps/usa.states-territories@2.0.0':
+    resolution: {integrity: sha512-sSzZN3b8Z6TgShbkRsXLaklsSqPjvo9y9SFCpuNDhqdpD2jDuRSl1zrBvL0bHc+FbD9CnvTSmIuYdw66+018Dw==}
 
   '@tailwindcss/node@4.2.1':
     resolution: {integrity: sha512-jlx6sLk4EOwO6hHe1oCGm1Q4AN/s0rSrTTPBGPM0/RQ6Uylwq17FuU8IeJJKEjtc6K6O07zsvP+gDO6MMWo7pg==}
@@ -3744,6 +3750,8 @@ snapshots:
 
   '@speed-highlight/core@1.2.24': {}
 
+  '@svg-maps/usa.states-territories@2.0.0': {}
+
   '@tailwindcss/node@4.2.1':
     dependencies:
       '@jridgewell/remapping': 2.3.5
@@ -6140,3 +6148,4 @@ snapshots:
   zod@3.25.76: {}
 
   zod@4.4.3: {}
+
