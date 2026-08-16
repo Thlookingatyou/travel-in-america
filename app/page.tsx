@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { stateByName, stateCatalog, stateId, type StateRecord } from "./data";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { stateByName, stateId, type StateRecord } from "./data";
 
 type CityLocation = { name: string; lat: number; lon: number };
 type LocationMap = Map<string, CityLocation>;
@@ -76,6 +76,7 @@ function StateMap({ selected, interactive, onSelect, className = "" }: {
       path.addEventListener("click", choose);
       path.addEventListener("keydown", keydown);
     });
+    const mapStates = statePaths.filter((path) => stateByName.has(path.id.replaceAll("_", " ")));
     if (selected) {
       const selectedPath = root.querySelector<SVGPathElement>(`#${stateId(selected.name)}`);
       if (selectedPath) {
@@ -83,8 +84,14 @@ function StateMap({ selected, interactive, onSelect, className = "" }: {
         const padding = Math.max(box.width, box.height) * 0.18;
         root.setAttribute("viewBox", `${box.x - padding} ${box.y - padding} ${box.width + padding * 2} ${box.height + padding * 2}`);
       }
-    } else {
-      root.setAttribute("viewBox", "0 0 800 698");
+    } else if (mapStates.length) {
+      const boxes = mapStates.map((path) => path.getBBox());
+      const minX = Math.min(...boxes.map((box) => box.x));
+      const minY = Math.min(...boxes.map((box) => box.y));
+      const maxX = Math.max(...boxes.map((box) => box.x + box.width));
+      const maxY = Math.max(...boxes.map((box) => box.y + box.height));
+      const padding = Math.max(maxX - minX, maxY - minY) * 0.08;
+      root.setAttribute("viewBox", `${minX - padding} ${minY - padding} ${maxX - minX + padding * 2} ${maxY - minY + padding * 2}`);
     }
     return () => statePaths.forEach((path) => path.replaceWith(path.cloneNode(true)));
   }, [svg, selected, interactive, onSelect]);
@@ -112,12 +119,9 @@ function getPositionedLocations(state: StateRecord, locations: LocationMap) {
 }
 
 export default function Home() {
-  const [selected, setSelected] = useState<StateRecord | null>(null);
-  const handleSelect = useCallback((state: StateRecord) => setSelected(state), []);
-  const regions = useMemo(() => ["Northeast", "Midwest", "South", "West"].map((region) => ({
-    region,
-    items: stateCatalog.filter((state) => state.region === region),
-  })), []);
+  const [previewState, setPreviewState] = useState<StateRecord | null>(null);
+  const [detailState, setDetailState] = useState<StateRecord | null>(null);
+  const handleSelect = useCallback((state: StateRecord) => setPreviewState(state), []);
 
   return (
     <main className="site-shell">
@@ -135,7 +139,7 @@ export default function Home() {
         <div className="hero-stamp"><span>EST.</span><strong>50</strong><span>STATES</span></div>
       </section>
 
-      {selected ? <Detail state={selected} onBack={() => setSelected(null)} /> : (
+      {detailState ? <Detail state={detailState} onBack={() => setDetailState(null)} /> : (
         <section className="atlas-section">
           <div className="section-heading">
             <div><p className="eyebrow">01 / THE BIG PICTURE</p><h2>Pick your next<br /><em>American chapter.</em></h2></div>
@@ -144,15 +148,27 @@ export default function Home() {
           <div className="map-frame">
             <div className="map-caption">ADMINISTRATIVE MAP <span>•</span> 50 STATES</div>
             <StateMap interactive onSelect={handleSelect} />
-          </div>
-          <div className="state-index" aria-label="All states">
-            {stateCatalog.map((state) => <button key={state.abbr} onClick={() => handleSelect(state)}>{state.abbr}<span>{state.name}</span></button>)}
+            {previewState && <StateCallout state={previewState} onClose={() => setPreviewState(null)} onExplore={() => setDetailState(previewState)} />}
           </div>
         </section>
       )}
       <footer><span>TRAVEL IN AMERICA</span><span>State, city, and link records live in app/data.ts.</span><span>© {new Date().getFullYear()}</span></footer>
     </main>
   );
+}
+
+function StateCallout({ state, onClose, onExplore }: { state: StateRecord; onClose: () => void; onExplore: () => void }) {
+  return <aside className="state-callout" aria-live="polite">
+    <button className="callout-close" onClick={onClose} aria-label="Close state options">×</button>
+    <p className="eyebrow">STATE SELECTED</p>
+    <h3>{state.name}<span>{state.abbr}</span></h3>
+    <p>{state.region} region · capital: {state.capital}</p>
+    <div className="callout-actions">
+      <a href={wikiUrl(state.name)} target="_blank" rel="noreferrer">Wikipedia ↗</a>
+      <a href={youtubeUrl(`travel in ${state.name}`)} target="_blank" rel="noreferrer">YouTube ↗</a>
+      <button onClick={onExplore}>Open state map →</button>
+    </div>
+  </aside>;
 }
 
 function Detail({ state, onBack }: { state: StateRecord; onBack: () => void }) {
@@ -191,3 +207,4 @@ function Detail({ state, onBack }: { state: StateRecord; onBack: () => void }) {
     </section>
   );
 }
+
