@@ -1,7 +1,7 @@
 "use client";
 
 import usaMap from "@svg-maps/usa.states-territories";
-import { geoAlbersUsa } from "d3-geo";
+import { geoAlbersUsa, geoPath } from "d3-geo";
 import { useCallback, useEffect, useState } from "react";
 import { stateByName, type StateRecord } from "./data";
 import "./map.css";
@@ -10,6 +10,8 @@ type CityLocation = { name: string; lat: number; lon: number };
 type LocationMap = Map<string, CityLocation>;
 type RouteStop = { city: string; state: string; coordinates: [number, number]; wikiSlug?: string | null };
 type RoutePoint = RouteStop & { x: number; y: number; index: number };
+type GeoFeature = { type: "Feature"; properties?: { name?: string }; geometry: unknown };
+type GeoCollection = { type: "FeatureCollection"; features: GeoFeature[] };
 
 const salParadiseRoute: RouteStop[] = [
   { city: "New York City", state: "NY", coordinates: [-74.006, 40.7128], wikiSlug: "New_York_City" },
@@ -34,13 +36,12 @@ const salParadiseRoute: RouteStop[] = [
   { city: "Bakersfield", state: "CA", coordinates: [-119.017063, 35.386611], wikiSlug: null },
 ];
 
-// The map is an Albers USA map. Projecting real longitude/latitude coordinates
-// keeps Los Angeles on the Pacific coast and makes every stop track its city.
-const routeProjection = geoAlbersUsa();
-const salRoutePoints: RoutePoint[] = salParadiseRoute.flatMap((stop, index) => {
-  const projected = routeProjection(stop.coordinates);
-  return projected ? [{ ...stop, x: projected[0], y: projected[1], index }] : [];
-});
+function projectRoute(projection: ReturnType<typeof geoAlbersUsa>): RoutePoint[] {
+  return salParadiseRoute.flatMap((stop, index) => {
+    const projected = projection(stop.coordinates);
+    return projected ? [{ ...stop, x: projected[0], y: projected[1], index }] : [];
+  });
+}
 
 const normalize = (value: string) => value.toLowerCase().replace(/\bcity\b/g, "").replace(/[^a-z0-9]/g, "");
 const wikiUrl = (label: string) => `https://en.wikipedia.org/wiki/${encodeURIComponent(label.replaceAll(" ", "_"))}`;
@@ -74,6 +75,23 @@ function useCityLocations() {
   return locations;
 }
 
+function useUsaGeography() {
+  const [geography, setGeography] = useState<GeoCollection | null>(null);
+  useEffect(() => {
+    let active = true;
+    fetch("/us-states.geojson")
+      .then((response) => response.json() as Promise<GeoCollection>)
+      .then((data) => {
+        if (active) setGeography(data);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
+  return geography;
+}
+
 function StateMap({ selected, interactive, onSelect, className = "", routeVisible = false, routeSelected, onRouteSelect }: {
   selected?: StateRecord | null;
   interactive?: boolean;
@@ -83,19 +101,31 @@ function StateMap({ selected, interactive, onSelect, className = "", routeVisibl
   routeSelected?: RoutePoint | null;
   onRouteSelect?: (stop: RoutePoint) => void;
 }) {
-  const states = usaMap.locations.flatMap((location) => {
-    const state = stateByName.get(location.name);
-    return state ? [{ location, state }] : [];
-  });
+  const geography = useUsaGeography();
+  const projection = geography
+    ? geoAlbersUsa().fitSize([959, 593], geography as never)
+    : geoAlbersUsa();
+  const routePoints = projectRoute(projection);
+  const pathGenerator = geoPath(projection);
+  const states = geography
+    ? geography.features.flatMap((feature) => {
+      const state = stateByName.get(feature.properties?.name ?? "");
+      const path = pathGenerator(feature as never);
+      return state && path ? [{ state, path }] : [];
+    })
+    : usaMap.locations.flatMap((location) => {
+      const state = stateByName.get(location.name);
+      return state ? [{ state, path: location.path }] : [];
+    });
 
   return <div className={`map-svg-wrap ${className}`}>
     <svg viewBox={usaMap.viewBox} role="img" aria-label={selected ? `Map highlighting ${selected.name}` : "Interactive administrative map of the United States"}>
-      {states.map(({ location, state }) => {
+      {states.map(({ state, path }) => {
         const choose = () => interactive && onSelect?.(state);
         return <path
           key={state.abbr}
-          id={`state-${location.id}`}
-          d={location.path}
+          id={`state-${state.abbr}`}
+          d={path}
           className={`state-shape${selected?.abbr === state.abbr ? " state-focus" : ""}`}
           aria-label={state.name}
           role={interactive ? "button" : undefined}
@@ -112,8 +142,8 @@ function StateMap({ selected, interactive, onSelect, className = "", routeVisibl
         </path>;
       })}
       {routeVisible && <g className="sal-route-overlay" aria-label="Sal Paradise first trip west">
-        <path className="sal-route-line" d={salRoutePoints.map((point, index) => `${index ? "L" : "M"}${point.x} ${point.y}`).join(" ")} />
-        {salRoutePoints.map((point) => {
+        <path className="sal-route-line" d={routePoints.map((point, index) => `${index ? "L" : "M"}${point.x} ${point.y}`).join(" ")} />
+        {routePoints.map((point) => {
           const choose = () => onRouteSelect?.(point);
           const isSelected = routeSelected?.index === point.index;
           const canOpen = routeWikiUrl(point) !== null;
@@ -228,7 +258,7 @@ function RouteIntro() {
     <p className="eyebrow">A LITERARY ROAD WEST</p>
     <h3>Sal Paradise’s first trip west</h3>
     <p>Jack Kerouac’s 1957 novel follows the restless narrator Sal Paradise across America with Dean Moriarty, a fictionalized Neal Cassady. This first westbound journey runs from New York through Chicago and Denver toward the Pacific coast: part travelogue, part portrait of the Beat Generation’s search for freedom, friendship, and experience.</p>
-    <a href="https://www.penguinrandomhouse.com/books/540750/on-the-road-by-jack-kerouac-introduction-by-ann-charters/9780142437254/" target="_blank" rel="noreferrer">About the novel ↗</a>
+    <a href="https://en.wikipedia.org/wiki/On_the_Road" target="_blank" rel="noreferrer">About the novel ↗</a>
   </aside>;
 }
 
