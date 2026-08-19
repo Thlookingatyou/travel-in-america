@@ -1,0 +1,31 @@
+ID,STATE_CODE,STATE_NAME,CITY,COUNTY,LATITUDE,LONGITUDE
+1,AL,Alabama,Hoover,,33.375128,-86.809416
+2,CO,Colorado,Lakewood,,39.698939,-105.117573
+3,CO,Colorado,Thornton,,39.920433,-104.941413
+4,DE,Delaware,Elsmere,,39.738446,-75.594565
+5,FL,Florida,St. Petersburg,,27.762727,-82.644131
+6,FL,Florida,Port St. Lucie,,27.280554,-80.388261
+7,GA,Georgia,Sandy Springs,,33.931501,-84.368886
+8,GA,Georgia,South Fulton,,33.63572,-84.583417
+9,GA,Georgia,Johns Creek,,34.032739,-84.203848
+10,MN,Minnesota,Bloomington,,44.829666,-93.315217
+11,MN,Minnesota,Brooklyn Park,,45.110906,-93.349088
+12,MN,Minnesota,Plymouth,,45.022312,-93.462883
+13,MN,Minnesota,Woodbury,,44.906283,-92.923703
+14,MN,Minnesota,Maple Grove,,45.112764,-93.462975
+15,MN,Minnesota,St. Cloud,,45.526658,-94.171007
+16,MO,Missouri,St. Louis,,38.635699,-90.244582
+17,MO,Missouri,St. Joseph,,39.75946,-94.821143
+18,MO,Missouri,St. Charles,,38.795702,-90.515364
+19,NJ,New Jersey,Hamilton,,40.206266,-74.675274
+20,OH,Ohio,Parma,,41.383569,-81.728641
+21,OK,Oklahoma,Moore,,35.328503,-97.474763
+22,OK,Oklahoma,Midwest City,,35.458752,-97.37457
+23,RI,Rhode Island,South Kingstown,,41.410847,-71.547469
+24,TN,Tennessee,Bartlett,,35.234169,-89.820266
+25,UT,Utah,West Valley City,,40.688493,-112.011759
+26,UT,Utah,St. George,,37.077006,-113.576534
+27,VT,Vermont,St. Albans,,44.811538,-73.084462
+28,WA,Washington,Spokane Valley,,47.663353,-117.23278
+29,WV,West Virginia,Teays Valley,,38.447336,-81.92442
+
