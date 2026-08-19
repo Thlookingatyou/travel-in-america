@@ -7,6 +7,40 @@ import "./map.css";
 
 type CityLocation = { name: string; lat: number; lon: number };
 type LocationMap = Map<string, CityLocation>;
+type RouteStop = { city: string; state: string };
+type RoutePoint = RouteStop & { x: number; y: number; index: number };
+
+const salParadiseRoute: RouteStop[] = [
+  { city: "New York City", state: "NY" },
+  { city: "Paterson", state: "NJ" },
+  { city: "Bear Mountain", state: "NY" },
+  { city: "Chicago", state: "IL" },
+  { city: "Joliet", state: "IL" },
+  { city: "Davenport", state: "IA" },
+  { city: "Des Moines", state: "IA" },
+  { city: "Council Bluffs", state: "IA" },
+  { city: "Omaha", state: "NE" },
+  { city: "North Platte", state: "NE" },
+  { city: "Cheyenne", state: "WY" },
+  { city: "Denver", state: "CO" },
+  { city: "Central City", state: "CO" },
+  { city: "Denver", state: "CO" },
+  { city: "Salt Lake City", state: "UT" },
+  { city: "Reno", state: "NV" },
+  { city: "Sacramento", state: "CA" },
+  { city: "San Francisco", state: "CA" },
+  { city: "Los Angeles", state: "CA" },
+  { city: "Bakersfield", state: "CA" },
+];
+
+// Hand-positioned against the same map projection used by @svg-maps/usa.states-territories.
+// Keeping these coordinates in one data block makes the literary route easy to update.
+const salRoutePoints: RoutePoint[] = [
+  [835, 218], [826, 226], [816, 207], [688, 248], [675, 267],
+  [622, 276], [574, 294], [539, 300], [522, 282], [465, 274],
+  [407, 257], [366, 291], [355, 282], [366, 291], [273, 286],
+  [190, 298], [143, 294], [128, 276], [113, 292], [133, 369], [162, 340],
+].map(([x, y], index) => ({ ...salParadiseRoute[index], x, y, index }));
 
 const normalize = (value: string) => value.toLowerCase().replace(/\bcity\b/g, "").replace(/[^a-z0-9]/g, "");
 const wikiUrl = (label: string) => `https://en.wikipedia.org/wiki/${encodeURIComponent(label.replaceAll(" ", "_"))}`;
@@ -39,11 +73,14 @@ function useCityLocations() {
   return locations;
 }
 
-function StateMap({ selected, interactive, onSelect, className = "" }: {
+function StateMap({ selected, interactive, onSelect, className = "", routeVisible = false, routeSelected, onRouteSelect }: {
   selected?: StateRecord | null;
   interactive?: boolean;
   onSelect?: (state: StateRecord) => void;
   className?: string;
+  routeVisible?: boolean;
+  routeSelected?: RoutePoint | null;
+  onRouteSelect?: (stop: RoutePoint) => void;
 }) {
   const states = usaMap.locations.flatMap((location) => {
     const state = stateByName.get(location.name);
@@ -73,7 +110,40 @@ function StateMap({ selected, interactive, onSelect, className = "" }: {
           <title>{state.name}</title>
         </path>;
       })}
+      {routeVisible && <g className="sal-route-overlay" aria-label="Sal Paradise first trip west">
+        <path className="sal-route-line" d={salRoutePoints.map((point, index) => `${index ? "L" : "M"}${point.x} ${point.y}`).join(" ")} />
+        {salRoutePoints.map((point) => {
+          const choose = () => onRouteSelect?.(point);
+          const isSelected = routeSelected?.index === point.index;
+          return <g
+            key={`${point.city}-${point.index}`}
+            className={`sal-route-point${isSelected ? " selected" : ""}`}
+            role="button"
+            tabIndex={0}
+            aria-label={`Route stop ${point.index + 1}: ${point.city}, ${point.state}`}
+            onClick={choose}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                choose();
+              }
+            }}
+          >
+            <circle className="sal-route-halo" cx={point.x} cy={point.y} r={isSelected ? 8 : 5.5} />
+            <circle className="sal-route-dot" cx={point.x} cy={point.y} r={isSelected ? 4.5 : 3} />
+            <text x={point.x + 7} y={point.y - 7}>{String(point.index + 1).padStart(2, "0")}</text>
+            <title>{point.city}, {point.state}</title>
+          </g>;
+        })}
+      </g>}
     </svg>
+  </div>;
+}
+
+function HeroUSA() {
+  return <div className="hero-photo">
+    <img src="/USAsvg.webp" alt="The United States highlighted on a globe" />
+    <span>USA</span>
   </div>;
 }
 
@@ -98,6 +168,8 @@ function getPositionedLocations(state: StateRecord, locations: LocationMap) {
 export default function Home() {
   const [previewState, setPreviewState] = useState<StateRecord | null>(null);
   const [detailState, setDetailState] = useState<StateRecord | null>(null);
+  const [showSalRoute, setShowSalRoute] = useState(false);
+  const [selectedRouteStop, setSelectedRouteStop] = useState<RouteStop | null>(null);
   const handleSelect = useCallback((state: StateRecord) => setPreviewState(state), []);
 
   return (
@@ -109,11 +181,11 @@ export default function Home() {
       <section className="hero" id="top">
         <div className="hero-copy">
           <p className="eyebrow">THE UNITED STATES, UNFOLDED</p>
-          <h1>Go somewhere<br /><em>you haven’t been.</em></h1>
-          <p className="hero-lede">Tap a state on the administrative map to zoom in. Find its capital, its ten largest cities, and a jumping-off point for your next trip.</p>
+          <h1>Welcome to the<br /><em>United States.</em></h1>
+          <p className="hero-lede">Traveling in such a large and diverse country can cause decidophobia. Well, before you start your trip, click the state you are interested in the map below and you can imagine the trip with introduction from Wikipedia and videos from YouTube.</p>
           <div className="legend"><span><i className="legend-dot blue" />top cities</span><span><i className="legend-star">★</i>capital</span></div>
         </div>
-        <div className="hero-stamp"><span>EST.</span><strong>50</strong><span>STATES</span></div>
+        <HeroUSA />
       </section>
 
       {detailState ? <Detail state={detailState} onBack={() => setDetailState(null)} /> : (
@@ -124,7 +196,11 @@ export default function Home() {
           </div>
           <div className="map-frame">
             <div className="map-caption">ADMINISTRATIVE MAP <span>•</span> 50 STATES</div>
-            <StateMap interactive onSelect={handleSelect} />
+            <button className="route-button" onClick={() => setShowSalRoute((visible) => !visible)} aria-expanded={showSalRoute}>
+              {showSalRoute ? "Hide Sal Paradise's route" : "Show Sal Paradise's first trip west"} <span>{showSalRoute ? "↑" : "→"}</span>
+            </button>
+            <StateMap interactive onSelect={handleSelect} routeVisible={showSalRoute} routeSelected={selectedRouteStop} onRouteSelect={setSelectedRouteStop} />
+            {showSalRoute && <RouteStopCard stop={selectedRouteStop} />}
             {previewState && <StateCallout state={previewState} onClose={() => setPreviewState(null)} onExplore={() => setDetailState(previewState)} />}
           </div>
         </section>
@@ -132,6 +208,15 @@ export default function Home() {
       <footer><span>TRAVEL IN AMERICA</span><span>State, city, and link records live in app/data.ts.</span><span>© {new Date().getFullYear()}</span></footer>
     </main>
   );
+}
+
+function RouteStopCard({ stop }: { stop: RoutePoint | null }) {
+  if (!stop) return <aside className="route-stop-card route-stop-card-empty"><p className="eyebrow">A LITERARY ROAD WEST</p><p>Click a numbered stop to explore Sal Paradise’s first trip west.</p></aside>;
+  return <aside className="route-stop-card" aria-live="polite">
+    <p className="eyebrow">STOP {String(stop.index + 1).padStart(2, "0")} · ON THE ROAD</p>
+    <h3>{stop.city}<span>{stop.state}</span></h3>
+    <div className="route-city-actions"><a href={wikiUrl(`${stop.city}, ${stop.state}`)} target="_blank" rel="noreferrer">Wikipedia ↗</a><a href={youtubeUrl(`travel in ${stop.city}, ${stop.state}`)} target="_blank" rel="noreferrer">YouTube ↗</a></div>
+  </aside>;
 }
 
 function StateCallout({ state, onClose, onExplore }: { state: StateRecord; onClose: () => void; onExplore: () => void }) {
