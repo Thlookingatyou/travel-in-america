@@ -60,10 +60,12 @@ function parseCityCsv(csv: string): LocationMap {
     const columns = line.split(",");
     if (columns.length < 7) continue;
     const [, abbr, , city, , lat, lon] = columns;
+    const cityName = city?.replace(/^"|"$/g, "").replaceAll('""', '"');
     const latitude = Number(lat);
     const longitude = Number(lon);
-    if (!abbr || !city || !Number.isFinite(latitude) || !Number.isFinite(longitude)) continue;
-    locations.set(`${abbr}:${normalize(city)}`, { name: city, lat: latitude, lon: longitude });
+    if (!abbr || !cityName || !Number.isFinite(latitude) || !Number.isFinite(longitude)) continue;
+    const key = `${abbr}:${normalize(cityName)}`;
+    if (!locations.has(key)) locations.set(key, { name: cityName, lat: latitude, lon: longitude });
   }
   return locations;
 }
@@ -72,8 +74,14 @@ function useCityLocations() {
   const [locations, setLocations] = useState<LocationMap>(new Map());
   useEffect(() => {
     let active = true;
-    fetch("/us-cities.csv").then((response) => response.text()).then((csv) => {
-      if (active) setLocations(parseCityCsv(csv));
+    Promise.all([
+      fetch("/us-cities.csv").then((response) => response.text()),
+      fetch("/us-city-overrides.csv").then((response) => response.text()),
+    ]).then(([cityCsv, overrideCsv]) => {
+      if (!active) return;
+      const merged = parseCityCsv(cityCsv);
+      for (const [key, location] of parseCityCsv(overrideCsv)) merged.set(key, location);
+      setLocations(merged);
     }).catch(() => undefined);
     return () => { active = false; };
   }, []);
@@ -193,22 +201,63 @@ function HeroUSA() {
   </div>;
 }
 
-function getPositionedLocations(state: StateRecord, locations: LocationMap) {
-  const cities = state.cities.map((city) => locations.get(locationKey(state, city.name))).filter((city): city is CityLocation => Boolean(city));
-  const capital = locations.get(locationKey(state, state.capital));
-  const all = capital ? [...cities, capital] : cities;
-  if (!all.length) return { cities: [], capital: null };
-  const minLon = Math.min(...all.map((point) => point.lon));
-  const maxLon = Math.max(...all.map((point) => point.lon));
-  const minLat = Math.min(...all.map((point) => point.lat));
-  const maxLat = Math.max(...all.map((point) => point.lat));
-  const x = (lon: number) => 14 + ((lon - minLon) / Math.max(maxLon - minLon, 0.2)) * 72;
-  const y = (lat: number) => 86 - ((lat - minLat) / Math.max(maxLat - minLat, 0.2)) * 72;
-  const point = (location: CityLocation) => ({ ...location, left: `${x(location.lon)}%`, top: `${y(location.lat)}%` });
-  return {
-    cities: state.cities.map((city) => locations.get(locationKey(state, city.name))).filter((city): city is CityLocation => Boolean(city)).map(point),
-    capital: capital ? point(capital) : null,
-  };
+function StateDetailMap({ state, locations }: { state: StateRecord; locations: LocationMap }) {
+  const geography = useUsaGeography();
+  const feature = geography?.features.find((candidate) => candidate.properties?.name === state.name);
+  if (!feature) return <div className="state-map-loading">Preparing the {state.name} map…</div>;
+
+  const projection = geoAlbersUsa().fitExtent([[78, 62], [822, 458]], feature as never);
+  const outline = geoPath(projection)(feature as never);
+  const cities = state.cities.flatMap((city, index) => {
+    const location = locations.get(locationKey(state, city.name));
+    if (!location) return [];
+    const projected = projection([location.lon, location.lat]);
+    return projected ? [{ ...city, index, x: projected[0], y: projected[1] }] : [];
+  });
+  const capitalLocation = locations.get(locationKey(state, state.capital));
+  const capitalProjected = capitalLocation ? projection([capitalLocation.lon, capitalLocation.lat]) : null;
+  const capitalInCities = cities.some((city) => normalize(city.name) === normalize(state.capital));
+  const labelOffsets = [
+    { dx: 12, dy: -10, anchor: "start" as const },
+    { dx: 12, dy: 17, anchor: "start" as const },
+    { dx: -12, dy: -10, anchor: "end" as const },
+    { dx: -12, dy: 17, anchor: "end" as const },
+  ];
+
+  return <svg className="state-detail-map" viewBox="0 0 900 520" role="img" aria-label={`${state.name} map with its capital and ten largest cities`}>
+    {outline && <path className="state-detail-shape" d={outline}><title>{state.name}</title></path>}
+    {cities.map((city) => {
+      const isCapital = normalize(city.name) === normalize(state.capital);
+      const offset = labelOffsets[city.index % labelOffsets.length];
+      return <a
+        key={city.name}
+        className={`state-place${isCapital ? " state-place-capital" : ""}`}
+        href={wikiUrl(city.name)}
+        target="_blank"
+        rel="noreferrer"
+        aria-label={`Open ${city.name} on Wikipedia`}
+      >
+        {isCapital
+          ? <text className="state-capital-star" x={city.x} y={city.y + 7} textAnchor="middle">★</text>
+          : <circle cx={city.x} cy={city.y} r="5" />}
+        <text className="state-place-label" x={city.x + offset.dx} y={city.y + offset.dy} textAnchor={offset.anchor}>
+          {isCapital ? `${city.name} · capital / #${city.index + 1}` : `${city.index + 1}. ${city.name}`}
+        </text>
+        <title>{city.name}{isCapital ? `, capital of ${state.name}` : `, ${state.name}`}</title>
+      </a>;
+    })}
+    {capitalProjected && !capitalInCities && <a
+      className="state-place state-place-capital"
+      href={wikiUrl(state.capital)}
+      target="_blank"
+      rel="noreferrer"
+      aria-label={`Open ${state.capital} on Wikipedia`}
+    >
+      <text className="state-capital-star" x={capitalProjected[0]} y={capitalProjected[1] + 7} textAnchor="middle">★</text>
+      <text className="state-place-label" x={capitalProjected[0] + 14} y={capitalProjected[1] - 11}>{state.capital} · capital</text>
+      <title>{state.capital}, capital of {state.name}</title>
+    </a>}
+  </svg>;
 }
 
 export default function Home() {
@@ -292,7 +341,6 @@ function StateCallout({ state, onClose, onExplore }: { state: StateRecord; onClo
 
 function Detail({ state, onBack }: { state: StateRecord; onBack: () => void }) {
   const locations = useCityLocations();
-  const positioned = getPositionedLocations(state, locations);
   return (
     <section className="detail-section">
       <button className="back-button" onClick={onBack}>← back to the full map</button>
@@ -308,11 +356,7 @@ function Detail({ state, onBack }: { state: StateRecord; onBack: () => void }) {
         </div>
         <div className="zoom-map">
           <div className="zoom-label">ZOOMED STATE MAP <span>{state.abbr}</span></div>
-          <StateMap selected={state} className="detail-svg" />
-          <div className="marker-layer">
-            {positioned.capital && <a className="capital-marker" style={{ left: positioned.capital.left, top: positioned.capital.top }} href={wikiUrl(state.capital)} target="_blank" rel="noreferrer" title={`Open ${state.capital} on Wikipedia`}><span>★</span><small>{state.capital}</small></a>}
-            {positioned.cities.map((city, index) => <a key={city.name} className="city-marker" style={{ left: city.left, top: city.top }} href={wikiUrl(city.name)} target="_blank" rel="noreferrer" title={`Open ${city.name} on Wikipedia`}><i /><span>{index + 1}. {city.name}</span></a>)}
-          </div>
+          <StateDetailMap state={state} locations={locations} />
           <div className="zoom-legend"><span><i className="legend-dot blue" />top 10 cities · Wikipedia markers</span><span><i className="legend-star">★</i>capital</span></div>
         </div>
       </div>
