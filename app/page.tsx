@@ -1,50 +1,51 @@
 "use client";
 
 import usaMap from "@svg-maps/usa.states-territories";
+import { geoAlbersUsa } from "d3-geo";
 import { useCallback, useEffect, useState } from "react";
 import { stateByName, type StateRecord } from "./data";
 import "./map.css";
 
 type CityLocation = { name: string; lat: number; lon: number };
 type LocationMap = Map<string, CityLocation>;
-type RouteStop = { city: string; state: string };
+type RouteStop = { city: string; state: string; coordinates: [number, number]; wikiSlug?: string | null };
 type RoutePoint = RouteStop & { x: number; y: number; index: number };
 
 const salParadiseRoute: RouteStop[] = [
-  { city: "New York City", state: "NY" },
-  { city: "Paterson", state: "NJ" },
-  { city: "Bear Mountain", state: "NY" },
-  { city: "Chicago", state: "IL" },
-  { city: "Joliet", state: "IL" },
-  { city: "Davenport", state: "IA" },
-  { city: "Des Moines", state: "IA" },
-  { city: "Council Bluffs", state: "IA" },
-  { city: "Omaha", state: "NE" },
-  { city: "North Platte", state: "NE" },
-  { city: "Cheyenne", state: "WY" },
-  { city: "Denver", state: "CO" },
-  { city: "Central City", state: "CO" },
-  { city: "Denver", state: "CO" },
-  { city: "Salt Lake City", state: "UT" },
-  { city: "Reno", state: "NV" },
-  { city: "Sacramento", state: "CA" },
-  { city: "San Francisco", state: "CA" },
-  { city: "Los Angeles", state: "CA" },
-  { city: "Bakersfield", state: "CA" },
+  { city: "New York City", state: "NY", coordinates: [-74.006, 40.7128], wikiSlug: "New_York_City" },
+  { city: "Paterson", state: "NJ", coordinates: [-74.167141, 40.914273], wikiSlug: "Paterson,_New_Jersey" },
+  { city: "Bear Mountain", state: "NY", coordinates: [-73.996108, 41.306734], wikiSlug: "Bear_Mountain_(mountain)" },
+  { city: "Chicago", state: "IL", coordinates: [-87.618123, 41.885847], wikiSlug: "Chicago" },
+  { city: "Joliet", state: "IL", coordinates: [-88.08241, 41.527154], wikiSlug: "Joliet,_Illinois" },
+  { city: "Davenport", state: "IA", coordinates: [-90.5743, 41.5218], wikiSlug: "Davenport,_Iowa" },
+  { city: "Des Moines", state: "IA", coordinates: [-93.6088, 41.6005], wikiSlug: "Des_Moines" },
+  { city: "Council Bluffs", state: "IA", coordinates: [-95.880992, 41.252954], wikiSlug: "Council_Bluffs,_Iowa" },
+  { city: "Omaha", state: "NE", coordinates: [-95.9376, 41.261], wikiSlug: "Omaha,_Nebraska" },
+  { city: "North Platte", state: "NE", coordinates: [-100.774631, 41.132595], wikiSlug: "North_Platte,_Nebraska" },
+  { city: "Cheyenne", state: "WY", coordinates: [-104.796234, 41.143719], wikiSlug: "Cheyenne,_Wyoming" },
+  { city: "Denver", state: "CO", coordinates: [-105.007985, 39.840562], wikiSlug: "Denver" },
+  { city: "Central City", state: "CO", coordinates: [-105.513611, 39.801944], wikiSlug: "Central_City,_Colorado" },
+  { city: "Denver", state: "CO", coordinates: [-105.007985, 39.840562], wikiSlug: "Denver" },
+  { city: "Salt Lake City", state: "UT", coordinates: [-111.896657, 40.755851], wikiSlug: "Salt_Lake_City" },
+  { city: "Reno", state: "NV", coordinates: [-119.811275, 39.526812], wikiSlug: "Reno,_Nevada" },
+  { city: "Sacramento", state: "CA", coordinates: [-121.4933, 38.5816], wikiSlug: "Sacramento,_California" },
+  { city: "San Francisco", state: "CA", coordinates: [-122.4183, 37.775], wikiSlug: "San_Francisco" },
+  { city: "Los Angeles", state: "CA", coordinates: [-118.247896, 33.973093], wikiSlug: "Los_Angeles" },
+  { city: "Bakersfield", state: "CA", coordinates: [-119.017063, 35.386611], wikiSlug: null },
 ];
 
-// Hand-positioned against the same map projection used by @svg-maps/usa.states-territories.
-// Keeping these coordinates in one data block makes the literary route easy to update.
-const salRoutePoints: RoutePoint[] = [
-  [835, 218], [826, 226], [816, 207], [688, 248], [675, 267],
-  [622, 276], [574, 294], [539, 300], [522, 282], [465, 274],
-  [407, 257], [366, 291], [355, 282], [366, 291], [273, 286],
-  [190, 298], [143, 294], [128, 276], [113, 292], [133, 369], [162, 340],
-].map(([x, y], index) => ({ ...salParadiseRoute[index], x, y, index }));
+// The map is an Albers USA map. Projecting real longitude/latitude coordinates
+// keeps Los Angeles on the Pacific coast and makes every stop track its city.
+const routeProjection = geoAlbersUsa();
+const salRoutePoints: RoutePoint[] = salParadiseRoute.flatMap((stop, index) => {
+  const projected = routeProjection(stop.coordinates);
+  return projected ? [{ ...stop, x: projected[0], y: projected[1], index }] : [];
+});
 
 const normalize = (value: string) => value.toLowerCase().replace(/\bcity\b/g, "").replace(/[^a-z0-9]/g, "");
 const wikiUrl = (label: string) => `https://en.wikipedia.org/wiki/${encodeURIComponent(label.replaceAll(" ", "_"))}`;
 const youtubeUrl = (query: string) => `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+const routeWikiUrl = (stop: RouteStop) => stop.wikiSlug === null ? null : wikiUrl(stop.wikiSlug ?? stop.city);
 const locationKey = (state: StateRecord, city: string) => `${state.abbr}:${normalize(city)}`;
 
 function parseCityCsv(csv: string): LocationMap {
@@ -115,23 +116,24 @@ function StateMap({ selected, interactive, onSelect, className = "", routeVisibl
         {salRoutePoints.map((point) => {
           const choose = () => onRouteSelect?.(point);
           const isSelected = routeSelected?.index === point.index;
+          const canOpen = routeWikiUrl(point) !== null;
           return <g
             key={`${point.city}-${point.index}`}
-            className={`sal-route-point${isSelected ? " selected" : ""}`}
-            role="button"
-            tabIndex={0}
-            aria-label={`Route stop ${point.index + 1}: ${point.city}, ${point.state}`}
-            onClick={choose}
-            onKeyDown={(event) => {
+            className={`sal-route-point${isSelected ? " selected" : ""}${canOpen ? "" : " static"}`}
+            role={canOpen ? "button" : undefined}
+            tabIndex={canOpen ? 0 : undefined}
+            aria-label={`${point.city}, ${point.state}${canOpen ? " route stop" : " (Wikipedia unavailable)"}`}
+            onClick={canOpen ? choose : undefined}
+            onKeyDown={canOpen ? (event) => {
               if (event.key === "Enter" || event.key === " ") {
                 event.preventDefault();
                 choose();
               }
-            }}
+            } : undefined}
           >
             <circle className="sal-route-halo" cx={point.x} cy={point.y} r={isSelected ? 8 : 5.5} />
             <circle className="sal-route-dot" cx={point.x} cy={point.y} r={isSelected ? 4.5 : 3} />
-            <text x={point.x + 7} y={point.y - 7}>{String(point.index + 1).padStart(2, "0")}</text>
+            <text x={point.x + 7} y={point.y - 7}>{point.city}</text>
             <title>{point.city}, {point.state}</title>
           </g>;
         })}
@@ -200,7 +202,8 @@ export default function Home() {
               {showSalRoute ? "Hide Sal Paradise's route" : "Show Sal Paradise's first trip west"} <span>{showSalRoute ? "↑" : "→"}</span>
             </button>
             <StateMap interactive onSelect={handleSelect} routeVisible={showSalRoute} routeSelected={selectedRouteStop} onRouteSelect={setSelectedRouteStop} />
-            {showSalRoute && <RouteStopCard stop={selectedRouteStop} />}
+            {showSalRoute && <RouteIntro />}
+            {showSalRoute && selectedRouteStop && <RouteStopCard stop={selectedRouteStop} />}
             {previewState && <StateCallout state={previewState} onClose={() => setPreviewState(null)} onExplore={() => setDetailState(previewState)} />}
           </div>
         </section>
@@ -211,11 +214,21 @@ export default function Home() {
 }
 
 function RouteStopCard({ stop }: { stop: RoutePoint | null }) {
-  if (!stop) return <aside className="route-stop-card route-stop-card-empty"><p className="eyebrow">A LITERARY ROAD WEST</p><p>Click a numbered stop to explore Sal Paradise’s first trip west.</p></aside>;
+  if (!stop) return null;
+  const wikipedia = routeWikiUrl(stop);
   return <aside className="route-stop-card" aria-live="polite">
-    <p className="eyebrow">STOP {String(stop.index + 1).padStart(2, "0")} · ON THE ROAD</p>
+    <p className="eyebrow">ON THE ROAD · ROUTE STOP</p>
     <h3>{stop.city}<span>{stop.state}</span></h3>
-    <div className="route-city-actions"><a href={wikiUrl(`${stop.city}, ${stop.state}`)} target="_blank" rel="noreferrer">Wikipedia ↗</a><a href={youtubeUrl(`travel in ${stop.city}, ${stop.state}`)} target="_blank" rel="noreferrer">YouTube ↗</a></div>
+    <div className="route-city-actions">{wikipedia && <a href={wikipedia} target="_blank" rel="noreferrer">Wikipedia ↗</a>}<a href={youtubeUrl(`travel in ${stop.city}, ${stop.state}`)} target="_blank" rel="noreferrer">YouTube ↗</a></div>
+  </aside>;
+}
+
+function RouteIntro() {
+  return <aside className="route-intro">
+    <p className="eyebrow">A LITERARY ROAD WEST</p>
+    <h3>Sal Paradise’s first trip west</h3>
+    <p>Jack Kerouac’s 1957 novel follows the restless narrator Sal Paradise across America with Dean Moriarty, a fictionalized Neal Cassady. This first westbound journey runs from New York through Chicago and Denver toward the Pacific coast: part travelogue, part portrait of the Beat Generation’s search for freedom, friendship, and experience.</p>
+    <a href="https://www.penguinrandomhouse.com/books/540750/on-the-road-by-jack-kerouac-introduction-by-ann-charters/9780142437254/" target="_blank" rel="noreferrer">About the novel ↗</a>
   </aside>;
 }
 
