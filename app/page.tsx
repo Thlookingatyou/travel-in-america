@@ -3,13 +3,14 @@
 import usaMap from "@svg-maps/usa.states-territories";
 import { geoAlbersUsa, geoArea, geoPath } from "d3-geo";
 import { useCallback, useEffect, useState } from "react";
-import { stateByName, type StateRecord } from "./data";
+import { stateByAbbr, stateByName, type StateRecord } from "./data";
 import "./map.css";
 
 type CityLocation = { name: string; lat: number; lon: number };
 type LocationMap = Map<string, CityLocation>;
 type RouteStop = { city: string; state: string; coordinates: [number, number]; wikiSlug?: string | null };
 type RoutePoint = RouteStop & { x: number; y: number; index: number };
+type RandomDestination = CityLocation & { city: string; state: StateRecord };
 type Position = [number, number];
 type PolygonCoordinates = Position[][];
 type GeoGeometry =
@@ -39,6 +40,21 @@ const salParadiseRoute: RouteStop[] = [
   { city: "San Francisco", state: "CA", coordinates: [-122.4183, 37.775], wikiSlug: "San_Francisco" },
   { city: "Los Angeles", state: "CA", coordinates: [-118.247896, 33.973093], wikiSlug: "Los_Angeles" },
   { city: "Bakersfield", state: "CA", coordinates: [-119.017063, 35.386611], wikiSlug: null },
+];
+
+const famousDestinationSeeds: [city: string, stateAbbr: string][] = [
+  ["New York City", "NY"], ["Boston", "MA"], ["Philadelphia", "PA"], ["Pittsburgh", "PA"],
+  ["Baltimore", "MD"], ["Portland", "ME"], ["Providence", "RI"], ["Burlington", "VT"],
+  ["Miami", "FL"], ["Orlando", "FL"], ["New Orleans", "LA"], ["Charleston", "SC"],
+  ["Savannah", "GA"], ["Atlanta", "GA"], ["Nashville", "TN"], ["Memphis", "TN"],
+  ["Charlotte", "NC"], ["Virginia Beach", "VA"], ["Louisville", "KY"], ["Chicago", "IL"],
+  ["Detroit", "MI"], ["Minneapolis", "MN"], ["Milwaukee", "WI"], ["Cleveland", "OH"],
+  ["Indianapolis", "IN"], ["Kansas City", "MO"], ["St. Louis", "MO"], ["Omaha", "NE"],
+  ["Austin", "TX"], ["San Antonio", "TX"], ["Dallas", "TX"], ["Houston", "TX"],
+  ["Denver", "CO"], ["Santa Fe", "NM"], ["Albuquerque", "NM"], ["Phoenix", "AZ"],
+  ["Tucson", "AZ"], ["Las Vegas", "NV"], ["Salt Lake City", "UT"], ["Boise", "ID"],
+  ["Portland", "OR"], ["Seattle", "WA"], ["San Francisco", "CA"], ["Los Angeles", "CA"],
+  ["San Diego", "CA"], ["Honolulu", "HI"], ["Anchorage", "AK"],
 ];
 
 function projectRoute(projection: ReturnType<typeof geoAlbersUsa>): RoutePoint[] {
@@ -114,7 +130,7 @@ function useUsaGeography() {
   return geography;
 }
 
-function StateMap({ selected, interactive, onSelect, className = "", routeVisible = false, routeSelected, onRouteSelect }: {
+function StateMap({ selected, interactive, onSelect, className = "", routeVisible = false, routeSelected, onRouteSelect, randomDestination }: {
   selected?: StateRecord | null;
   interactive?: boolean;
   onSelect?: (state: StateRecord) => void;
@@ -122,12 +138,14 @@ function StateMap({ selected, interactive, onSelect, className = "", routeVisibl
   routeVisible?: boolean;
   routeSelected?: RoutePoint | null;
   onRouteSelect?: (stop: RoutePoint) => void;
+  randomDestination?: RandomDestination | null;
 }) {
   const geography = useUsaGeography();
   const projection = geography
     ? geoAlbersUsa().fitSize([959, 593], geography as never)
     : geoAlbersUsa();
   const routePoints = projectRoute(projection);
+  const randomPoint = randomDestination ? projection([randomDestination.lon, randomDestination.lat]) : null;
   const pathGenerator = geoPath(projection);
   const states = geography
     ? geography.features.flatMap((feature) => {
@@ -148,7 +166,7 @@ function StateMap({ selected, interactive, onSelect, className = "", routeVisibl
           key={state.abbr}
           id={`state-${state.abbr}`}
           d={path}
-          className={`state-shape${selected?.abbr === state.abbr ? " state-focus" : ""}`}
+          className={`state-shape${selected?.abbr === state.abbr ? " state-focus" : ""}${randomDestination?.state.abbr === state.abbr ? " random-state" : ""}`}
           aria-label={state.name}
           role={interactive ? "button" : undefined}
           tabIndex={interactive ? 0 : undefined}
@@ -189,6 +207,13 @@ function StateMap({ selected, interactive, onSelect, className = "", routeVisibl
             <title>{point.city}, {point.state}</title>
           </g>;
         })}
+      </g>}
+      {randomDestination && randomPoint && <g key={`${randomDestination.state.abbr}-${randomDestination.city}`} className="random-destination-marker" aria-label={`${randomDestination.city}, ${randomDestination.state.name}`}>
+        <circle className="random-destination-pulse" cx={randomPoint[0]} cy={randomPoint[1]} r="17" />
+        <circle className="random-destination-ring" cx={randomPoint[0]} cy={randomPoint[1]} r="9" />
+        <circle className="random-destination-dot" cx={randomPoint[0]} cy={randomPoint[1]} r="4" />
+        <text x={randomPoint[0] + 13} y={randomPoint[1] - 13}>{randomDestination.city}, {randomDestination.state.abbr}</text>
+        <title>{randomDestination.city}, {randomDestination.state.name}</title>
       </g>}
     </svg>
   </div>;
@@ -265,7 +290,27 @@ export default function Home() {
   const [detailState, setDetailState] = useState<StateRecord | null>(null);
   const [showSalRoute, setShowSalRoute] = useState(false);
   const [selectedRouteStop, setSelectedRouteStop] = useState<RouteStop | null>(null);
+  const [randomDestination, setRandomDestination] = useState<RandomDestination | null>(null);
+  const cityLocations = useCityLocations();
+  const famousDestinations = famousDestinationSeeds.flatMap(([city, stateAbbr]) => {
+    const state = stateByAbbr.get(stateAbbr);
+    if (!state) return [];
+    const location = cityLocations.get(locationKey(state, city));
+    return location ? [{ ...location, city, state }] : [];
+  });
   const handleSelect = useCallback((state: StateRecord) => setPreviewState(state), []);
+  const chooseRandomDestination = () => {
+    if (!famousDestinations.length) return;
+    let next = famousDestinations[Math.floor(Math.random() * famousDestinations.length)];
+    if (famousDestinations.length > 1 && next.city === randomDestination?.city && next.state.abbr === randomDestination.state.abbr) {
+      const currentIndex = famousDestinations.findIndex((destination) => destination.city === next.city && destination.state.abbr === next.state.abbr);
+      next = famousDestinations[(currentIndex + 1) % famousDestinations.length];
+    }
+    setRandomDestination(next);
+    setPreviewState(null);
+    setShowSalRoute(false);
+    setSelectedRouteStop(null);
+  };
 
   return (
     <main className="site-shell">
@@ -283,7 +328,7 @@ export default function Home() {
         <HeroUSA />
       </section>
 
-      {detailState ? <Detail state={detailState} onBack={() => setDetailState(null)} /> : (
+      {detailState ? <Detail state={detailState} locations={cityLocations} onBack={() => setDetailState(null)} /> : (
         <section className="atlas-section">
           <div className="section-heading">
             <div><p className="eyebrow">01 / THE BIG PICTURE</p><h2>Pick your next<br /><em>American chapter.</em></h2></div>
@@ -294,10 +339,32 @@ export default function Home() {
             <button className="route-button" onClick={() => setShowSalRoute((visible) => !visible)} aria-expanded={showSalRoute}>
               {showSalRoute ? "Hide Sal Paradise's route" : "Show Sal Paradise's first trip west"} <span>{showSalRoute ? "↑" : "→"}</span>
             </button>
-            <StateMap interactive onSelect={handleSelect} routeVisible={showSalRoute} routeSelected={selectedRouteStop} onRouteSelect={setSelectedRouteStop} />
+            <StateMap interactive onSelect={handleSelect} routeVisible={showSalRoute} routeSelected={selectedRouteStop} onRouteSelect={setSelectedRouteStop} randomDestination={randomDestination} />
             {showSalRoute && <RouteIntro />}
             {showSalRoute && selectedRouteStop && <RouteStopCard stop={selectedRouteStop} />}
             {previewState && <StateCallout state={previewState} onClose={() => setPreviewState(null)} onExplore={() => setDetailState(previewState)} />}
+          </div>
+          <div className="random-destination-panel">
+            <div className="random-destination-copy">
+              <p className="eyebrow">LET CHANCE DECIDE</p>
+              <h3>Randomly choose a place to visit <em>if you are not sure where to.</em></h3>
+              <p>A curated draw from {famousDestinationSeeds.length} well-known American cities. Each click places the destination directly on the map above.</p>
+            </div>
+            <div className="random-destination-controls">
+              <button type="button" onClick={chooseRandomDestination} disabled={!famousDestinations.length}>
+                {famousDestinations.length ? "Choose a random city" : "Preparing destinations…"} <span>→</span>
+              </button>
+              <div className={`random-destination-result${randomDestination ? " has-result" : ""}`} aria-live="polite">
+                {randomDestination ? <>
+                  <p>Your next American chapter</p>
+                  <h4>{randomDestination.city}<span>{randomDestination.state.abbr}</span></h4>
+                  <div>
+                    <a href={wikiUrl(randomDestination.city)} target="_blank" rel="noreferrer">Wikipedia ↗</a>
+                    <a href={youtubeUrl(`travel in ${randomDestination.city} ${randomDestination.state.name}`)} target="_blank" rel="noreferrer">YouTube ↗</a>
+                  </div>
+                </> : <p>Press the button and let the map choose for you.</p>}
+              </div>
+            </div>
           </div>
         </section>
       )}
@@ -339,8 +406,7 @@ function StateCallout({ state, onClose, onExplore }: { state: StateRecord; onClo
   </aside>;
 }
 
-function Detail({ state, onBack }: { state: StateRecord; onBack: () => void }) {
-  const locations = useCityLocations();
+function Detail({ state, locations, onBack }: { state: StateRecord; locations: LocationMap; onBack: () => void }) {
   return (
     <section className="detail-section">
       <button className="back-button" onClick={onBack}>← back to the full map</button>
