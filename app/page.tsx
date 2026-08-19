@@ -1,7 +1,7 @@
 "use client";
 
 import usaMap from "@svg-maps/usa.states-territories";
-import { geoAlbersUsa, geoPath } from "d3-geo";
+import { geoAlbersUsa, geoArea, geoPath } from "d3-geo";
 import { useCallback, useEffect, useState } from "react";
 import { stateByName, type StateRecord } from "./data";
 import "./map.css";
@@ -10,7 +10,12 @@ type CityLocation = { name: string; lat: number; lon: number };
 type LocationMap = Map<string, CityLocation>;
 type RouteStop = { city: string; state: string; coordinates: [number, number]; wikiSlug?: string | null };
 type RoutePoint = RouteStop & { x: number; y: number; index: number };
-type GeoFeature = { type: "Feature"; properties?: { name?: string }; geometry: unknown };
+type Position = [number, number];
+type PolygonCoordinates = Position[][];
+type GeoGeometry =
+  | { type: "Polygon"; coordinates: PolygonCoordinates }
+  | { type: "MultiPolygon"; coordinates: PolygonCoordinates[] };
+type GeoFeature = { type: "Feature"; properties?: { name?: string }; geometry: GeoGeometry };
 type GeoCollection = { type: "FeatureCollection"; features: GeoFeature[] };
 
 const salParadiseRoute: RouteStop[] = [
@@ -82,7 +87,16 @@ function useUsaGeography() {
     fetch("/us-states.geojson")
       .then((response) => response.json() as Promise<GeoCollection>)
       .then((data) => {
-        if (active) setGeography(data);
+        if (!active) return;
+        const features = data.features.map((feature) => {
+          if (feature.geometry.type !== "MultiPolygon") return feature;
+          const coordinates = feature.geometry.coordinates.filter((polygon) => {
+            const area = geoArea({ type: "Polygon", coordinates: polygon } as never);
+            return area < Math.PI;
+          });
+          return { ...feature, geometry: { ...feature.geometry, coordinates } };
+        });
+        setGeography({ ...data, features });
       })
       .catch(() => undefined);
     return () => {
