@@ -1,9 +1,13 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import usaMap from "@svg-maps/usa.states-territories";
 import { geoAlbersUsa, geoArea, geoPath } from "d3-geo";
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { stateByAbbr, stateByName, type StateRecord } from "./data";
+import { FavoriteButton, FavoritesTrigger, type FavoriteItem } from "./favorites";
 import "./map.css";
 
 type CityLocation = { name: string; lat: number; lon: number };
@@ -69,6 +73,20 @@ const wikiUrl = (label: string) => `https://en.wikipedia.org/wiki/${encodeURICom
 const youtubeUrl = (query: string) => `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
 const routeWikiUrl = (stop: RouteStop) => stop.wikiSlug === null ? null : wikiUrl(stop.wikiSlug ?? stop.city);
 const locationKey = (state: StateRecord, city: string) => `${state.abbr}:${normalize(city)}`;
+const stateFavorite = (state: StateRecord): FavoriteItem => ({
+  id: `state:${state.abbr}`,
+  type: "state",
+  label: state.name,
+  subtitle: `${state.region} region · capital: ${state.capital}`,
+  href: wikiUrl(state.name),
+});
+const cityFavorite = (city: string, state: StateRecord): FavoriteItem => ({
+  id: `city:${state.abbr}:${normalize(city)}`,
+  type: "city",
+  label: city,
+  subtitle: state.name,
+  href: wikiUrl(city),
+});
 
 function parseCityCsv(csv: string): LocationMap {
   const locations: LocationMap = new Map();
@@ -316,7 +334,7 @@ export default function Home() {
     <main className="site-shell">
       <header className="topbar">
         <a className="brand" href="#top"><span className="brand-mark">✦</span><span>TRAVEL IN AMERICA<small>an atlas for curious travelers</small></span></a>
-        <div className="header-note"><span className="live-dot" />50 states · one curious map</div>
+        <div className="topbar-actions"><div className="header-note"><span className="live-dot" />50 states · one curious map</div><FavoritesTrigger compact /></div>
       </header>
       <section className="hero" id="top">
         <div className="hero-copy">
@@ -361,6 +379,7 @@ export default function Home() {
                   <div>
                     <a href={wikiUrl(randomDestination.city)} target="_blank" rel="noreferrer">Wikipedia ↗</a>
                     <a href={youtubeUrl(`travel in ${randomDestination.city} ${randomDestination.state.name}`)} target="_blank" rel="noreferrer">YouTube ↗</a>
+                    <FavoriteButton item={cityFavorite(randomDestination.city, randomDestination.state)} />
                   </div>
                 </> : <p>Press the button and let the map choose for you.</p>}
               </div>
@@ -368,7 +387,8 @@ export default function Home() {
           </div>
         </section>
       )}
-      <footer><span>TRAVEL IN AMERICA</span><span>State, city, and link records live in app/data.ts.</span><span>© {new Date().getFullYear()}</span></footer>
+      {!detailState && <HistoryCover />}
+      <footer><span>TRAVEL IN AMERICA</span><span>State, city, history, and link records are kept in simple data files.</span><span>© {new Date().getFullYear()}</span></footer>
     </main>
   );
 }
@@ -402,6 +422,7 @@ function StateCallout({ state, onClose, onExplore }: { state: StateRecord; onClo
       <a href={wikiUrl(state.name)} target="_blank" rel="noreferrer">Wikipedia ↗</a>
       <a href={youtubeUrl(`travel in ${state.name}`)} target="_blank" rel="noreferrer">YouTube ↗</a>
       <button onClick={onExplore}>Open state map →</button>
+      <FavoriteButton item={stateFavorite(state)} />
     </div>
   </aside>;
 }
@@ -418,6 +439,7 @@ function Detail({ state, locations, onBack }: { state: StateRecord; locations: L
           <div className="action-row">
             <a className="action primary" href={wikiUrl(state.name)} target="_blank" rel="noreferrer">Read the story <span>↗</span><small>Wikipedia guide</small></a>
             <a className="action secondary" href={youtubeUrl(`travel in ${state.name}`)} target="_blank" rel="noreferrer">See it in motion <span>↗</span><small>YouTube search</small></a>
+            <FavoriteButton item={stateFavorite(state)} className="detail-favorite" />
           </div>
         </div>
         <div className="zoom-map">
@@ -429,11 +451,26 @@ function Detail({ state, locations, onBack }: { state: StateRecord; locations: L
       <div className="city-list">
         <div><p className="eyebrow">THE CITY INDEX</p><h3>Ten places to start</h3><p className="data-note">Largest cities by 2020 Census city-proper population ordering; coordinates load from a public US city gazetteer.</p></div>
         <div className="city-columns">
-          <div className="capital-row"><span className="city-rank">CAPITAL</span><strong>{state.capital}</strong><a href={wikiUrl(state.capital)} target="_blank" rel="noreferrer">Wiki ↗</a><a href={youtubeUrl(`travel in ${state.capital} ${state.name}`)} target="_blank" rel="noreferrer">YouTube ↗</a></div>
-          {state.cities.map((city, index) => <div className="city-row" key={city.name}><span className="city-rank">{String(index + 1).padStart(2, "0")}</span><strong>{city.name}</strong><a href={wikiUrl(city.name)} target="_blank" rel="noreferrer">Wiki ↗</a><a href={youtubeUrl(`travel in ${city.name} ${state.name}`)} target="_blank" rel="noreferrer">YouTube ↗</a></div>)}
+          <div className="capital-row"><span className="city-rank">CAPITAL</span><strong>{state.capital}</strong><a href={wikiUrl(state.capital)} target="_blank" rel="noreferrer">Wiki ↗</a><a href={youtubeUrl(`travel in ${state.capital} ${state.name}`)} target="_blank" rel="noreferrer">YouTube ↗</a><FavoriteButton item={cityFavorite(state.capital, state)} showLabel={false} /></div>
+          {state.cities.map((city, index) => <div className="city-row" key={city.name}><span className="city-rank">{String(index + 1).padStart(2, "0")}</span><strong>{city.name}</strong><a href={wikiUrl(city.name)} target="_blank" rel="noreferrer">Wiki ↗</a><a href={youtubeUrl(`travel in ${city.name} ${state.name}`)} target="_blank" rel="noreferrer">YouTube ↗</a><FavoriteButton item={cityFavorite(city.name, state)} showLabel={false} /></div>)}
         </div>
       </div>
     </section>
   );
 }
 
+function HistoryCover() {
+  return <section className="history-cover-section" aria-labelledby="history-cover-title">
+    <div className="history-cover-image">
+      <img src="/history/history-cover.jpg" alt="John Trumbull’s painting of the Declaration committee presenting its draft to the Second Continental Congress" loading="lazy" />
+      <a href="https://commons.wikimedia.org/wiki/File:The_Declaration_of_Independence,_July_4,_1776,_by_John_Trumbull.jpg" target="_blank" rel="noreferrer">John Trumbull · public domain ↗</a>
+    </div>
+    <div className="history-cover-copy">
+      <p className="eyebrow">03 / HISTORY HAPPENED SOMEWHERE</p>
+      <h2 id="history-cover-title">These places are very <em>“American.”</em></h2>
+      <p>Walk through 24 places where Indigenous cities rose, delegates debated, wars turned, rights were demanded, and new cultures found their voice.</p>
+      <div className="history-cover-meta"><span>8 chapters</span><span>24 visitable places</span><span>save your favorites</span></div>
+      <Link className="history-cover-button" href="/history">Click to know more about the US <span>→</span></Link>
+    </div>
+  </section>;
+}
