@@ -1,46 +1,60 @@
 # Travel in America
 
-Travel in America is an interactive atlas for exploring the United States one state at a time.
+Travel in America is an interactive atlas for curious travelers who want to explore the United States through geography, cities, literature, and the historic places where the country changed.
 
-The site begins with a geographic administrative map of all 50 states. Select a state to zoom into its boundary, discover its capital and ten largest city records, and jump directly to Wikipedia or YouTube for background, travel inspiration, and trip research.
+The homepage centers on a clickable administrative map of all 50 states. Selecting a state opens a focused boundary map with its capital and ten featured cities in their geographic positions. Visitors can also trace Sal Paradise’s first trip west from *On the Road*, ask the atlas to choose a famous city at random, save places for later, or enter a scrollable American-history gallery.
 
-## What the site does
+## Main experiences
 
-- Shows all 50 states on an interactive administrative map.
-- Lets visitors select states by clicking their boundaries or using the accessible state index.
-- Opens a focused state view with the state boundary highlighted.
-- Marks the state capital with a red star.
-- Marks the ten featured largest cities with blue circles.
-- Links each state, city, and capital to Wikipedia.
-- Creates targeted YouTube travel searches for states, cities, and capitals.
-- Keeps the atlas content in editable local data files instead of scattering links throughout the interface.
+- Click any state directly on the national map and open its isolated state map.
+- See the state capital as a red star and ten featured cities as blue markers.
+- Open centrally generated Wikipedia and YouTube travel links.
+- Display Sal Paradise’s first westbound route directly on the map.
+- Randomly choose from 47 well-known American cities and mark the result on the map.
+- Save states, cities, and historic places in a device-local favorites drawer.
+- Visit **These places are very “American”**, an eight-chapter gallery of 24 visitable historical places.
+- Follow American history from Cahokia and the Revolution through expansion, the Civil War, civil rights, counterculture, hip-hop, and modern remembrance.
 
 ## Project structure
 
-- [app/page.tsx](app/page.tsx) contains the interactive experience, map behavior, marker placement, and link helpers.
-- [app/data.ts](app/data.ts) contains the 50 states, capitals, regions, and featured city records.
-- [public/us-states.svg](public/us-states.svg) contains the state boundary map used by the interface.
-- [public/us-cities.csv](public/us-cities.csv) supplies city coordinates for the detail maps.
-- [tests/rendered-html.test.mjs](tests/rendered-html.test.mjs) verifies server rendering and the atlas data/link structure.
+- [app/page.tsx](app/page.tsx) contains the main atlas, state exploration, literary route, random chooser, and history cover.
+- [app/data.ts](app/data.ts) contains the 50 states, capitals, regions, and featured cities.
+- [app/history/history-data.ts](app/history/history-data.ts) contains every history chapter and place shown in the gallery.
+- [app/history/HistoryPageClient.tsx](app/history/HistoryPageClient.tsx) renders the scrollable history experience.
+- [app/favorites.tsx](app/favorites.tsx) manages the reusable favorites drawer and device-local storage.
+- [public/history](public/history) contains the gallery’s locally stored historical images.
+- [public/us-states.geojson](public/us-states.geojson) provides the state boundaries.
+- [public/us-cities.csv](public/us-cities.csv) and [public/us-city-overrides.csv](public/us-city-overrides.csv) provide city coordinates.
+- [tests/rendered-html.test.mjs](tests/rendered-html.test.mjs) verifies both routes, social metadata, and the upgradeable data structure.
 
-## Updating the content
+## Updating atlas content
 
-To change a state, capital, or city record, edit [app/data.ts](app/data.ts). Each state record contains:
+Edit [app/data.ts](app/data.ts) to change a state, capital, region, or featured city. Wikipedia and YouTube URLs are generated centrally in [app/page.tsx](app/page.tsx), so link-format changes stay in one place.
 
-- the state name and abbreviation;
-- its capital;
-- its broad U.S. region;
-- ten featured cities, ordered by the current atlas data.
+City names must match the coordinate records in [public/us-cities.csv](public/us-cities.csv) or [public/us-city-overrides.csv](public/us-city-overrides.csv). Coordinates are projected through the same geographic projection as the relevant map.
 
-Wikipedia and YouTube URLs are generated centrally in [app/page.tsx](app/page.tsx), so changing the link format only requires editing the wikiUrl or youtubeUrl helper.
+The random-city collection is the `famousDestinationSeeds` list in [app/page.tsx](app/page.tsx).
 
-City coordinates are matched from [public/us-cities.csv](public/us-cities.csv). If a city is renamed in [app/data.ts](app/data.ts), update the corresponding city name in the coordinate dataset or its marker will not appear on the detail map.
+## Updating the history gallery
 
-## Data and map sources
+All history content lives in [app/history/history-data.ts](app/history/history-data.ts). Each chapter has a title, date range, introduction, and a list of places. Each place contains:
 
-The state boundary asset is a CC0 map based on U.S. Census boundary data. The city coordinate file is a public U.S. city gazetteer. Both assets are stored locally so the interactive map does not depend on a third-party API at runtime.
+- the event and year;
+- a visitable site and location;
+- a short historical introduction;
+- a local image path and accessible description;
+- an image-source link;
+- a history link and map-search query.
 
-The city ordering currently follows the atlas's 2020 city-proper population records. Refresh the city arrays in [app/data.ts](app/data.ts) when adopting a newer population source.
+Add an image to [public/history](public/history), add one place record to the appropriate chapter, and the gallery will render it automatically. The page calculates its displayed place and chapter totals from the data.
+
+## Favorites
+
+Favorites are intentionally private to the visitor’s current browser and device. They are stored under `travel-in-america:favorites:v1` in local storage; no account or server database is required.
+
+## Sources
+
+State boundaries derive from public U.S. geographic data, while the city coordinate files are stored locally to avoid a runtime mapping dependency. History explanations link to the National Park Service, National Archives, UNESCO, Smithsonian, and relevant site organizations. Historical images are stored locally and retain source links beside their gallery entries; many are public-domain or openly licensed Wikimedia Commons records.
 
 ## Run locally
 
@@ -58,7 +72,7 @@ Open the local URL printed by the development server.
 ~~~bash
 pnpm run build
 node --test tests/rendered-html.test.mjs
+pnpm run lint
 ~~~
 
-The project is designed for a Cloudflare-compatible Vinext/Sites deployment. GitHub stores the source code; deployment is handled separately by the selected hosting provider.
-
+The project uses a Cloudflare-compatible Vinext/Sites build. GitHub stores the source, while Sites publishes the live website.
