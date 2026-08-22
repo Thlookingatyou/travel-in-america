@@ -23,6 +23,8 @@ test("server-renders the Travel in America atlas", async () => {
   assert.match(html, /administrative map/i);
   assert.match(html, /Pick your next/i);
   assert.match(html, /og\.png/i);
+  assert.match(html, /github\.com\/Thlookingatyou\/travel-in-america/i);
+  assert.match(html, /Open the Travel in America GitHub repository/i);
   assert.doesNotMatch(html, /Your site is taking shape|Building your site|codex-preview/i);
 });
 
@@ -36,6 +38,7 @@ test("server-renders the American history gallery", async () => {
   assert.match(html, /Stonewall National Monument/i);
   assert.match(html, /24 places/i);
   assert.match(html, /history\/history-cover\.jpg/i);
+  assert.match(html, /github\.com\/Thlookingatyou\/travel-in-america/i);
   assert.doesNotMatch(html, /og\.png/i);
 });
 
