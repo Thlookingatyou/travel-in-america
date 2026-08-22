@@ -17,4 +17,18 @@ export async function generateMetadata(): Promise<Metadata> {
     twitter: { card: "summary_large_image", title, description, images: [socialImage] },
   };
 }
-export default function RootLayout({children}:{children:React.ReactNode}) { return <html lang="en"><body><FavoritesProvider>{children}</FavoritesProvider></body></html>; }
+export default function RootLayout({children}:{children:React.ReactNode}) {
+  return <html lang="en"><body>
+    <FavoritesProvider>{children}</FavoritesProvider>
+    <a
+      className="github-repository-link"
+      href="https://github.com/Thlookingatyou/travel-in-america"
+      target="_blank"
+      rel="noreferrer"
+      aria-label="Open the Travel in America GitHub repository"
+      title="View this project on GitHub"
+    >
+      <span aria-hidden="true" />
+    </a>
+  </body></html>;
+}
