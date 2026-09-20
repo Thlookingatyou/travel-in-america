@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { stateByAbbr, stateByName, type StateRecord } from "./data";
 import { FavoriteButton, FavoritesTrigger, type FavoriteItem } from "./favorites";
+import { cityWikiUrl, cityYoutubeUrl, stateWikiUrl, stateYoutubeUrl, wikiUrl, youtubeUrl } from "./links";
 import "./map.css";
 
 type CityLocation = { name: string; lat: number; lon: number };
@@ -43,7 +44,7 @@ const salParadiseRoute: RouteStop[] = [
   { city: "Sacramento", state: "CA", coordinates: [-121.4933, 38.5816], wikiSlug: "Sacramento,_California" },
   { city: "San Francisco", state: "CA", coordinates: [-122.4183, 37.775], wikiSlug: "San_Francisco" },
   { city: "Los Angeles", state: "CA", coordinates: [-118.247896, 33.973093], wikiSlug: "Los_Angeles" },
-  { city: "Bakersfield", state: "CA", coordinates: [-119.017063, 35.386611], wikiSlug: null },
+  { city: "Bakersfield", state: "CA", coordinates: [-119.017063, 35.386611], wikiSlug: "Bakersfield, California" },
 ];
 
 const famousDestinationSeeds: [city: string, stateAbbr: string][] = [
@@ -69,8 +70,6 @@ function projectRoute(projection: ReturnType<typeof geoAlbersUsa>): RoutePoint[]
 }
 
 const normalize = (value: string) => value.toLowerCase().replace(/\bcity\b/g, "").replace(/[^a-z0-9]/g, "");
-const wikiUrl = (label: string) => `https://en.wikipedia.org/wiki/${encodeURIComponent(label.replaceAll(" ", "_"))}`;
-const youtubeUrl = (query: string) => `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
 const routeWikiUrl = (stop: RouteStop) => stop.wikiSlug === null ? null : wikiUrl(stop.wikiSlug ?? stop.city);
 const locationKey = (state: StateRecord, city: string) => `${state.abbr}:${normalize(city)}`;
 const stateFavorite = (state: StateRecord): FavoriteItem => ({
@@ -78,23 +77,48 @@ const stateFavorite = (state: StateRecord): FavoriteItem => ({
   type: "state",
   label: state.name,
   subtitle: `${state.region} region · capital: ${state.capital}`,
-  href: wikiUrl(state.name),
+  href: stateWikiUrl(state),
 });
 const cityFavorite = (city: string, state: StateRecord): FavoriteItem => ({
   id: `city:${state.abbr}:${normalize(city)}`,
   type: "city",
   label: city,
   subtitle: state.name,
-  href: wikiUrl(city),
+  href: cityWikiUrl(city, state),
 });
+
+function parseCsvLine(line: string): string[] {
+  const columns: string[] = [];
+  let field = "";
+  let quoted = false;
+  for (let index = 0; index < line.length; index += 1) {
+    const character = line[index];
+    if (character === '"') {
+      if (quoted && line[index + 1] === '"') {
+        field += '"';
+        index += 1;
+      } else {
+        quoted = !quoted;
+      }
+    } else if (character === "," && !quoted) {
+      columns.push(field.trim());
+      field = "";
+    } else {
+      field += character;
+    }
+  }
+  columns.push(field.trim());
+  return columns;
+}
 
 function parseCityCsv(csv: string): LocationMap {
   const locations: LocationMap = new Map();
   for (const line of csv.split(/\r?\n/).slice(1)) {
-    const columns = line.split(",");
+    if (!line.trim()) continue;
+    const columns = parseCsvLine(line);
     if (columns.length < 7) continue;
     const [, abbr, , city, , lat, lon] = columns;
-    const cityName = city?.replace(/^"|"$/g, "").replaceAll('""', '"');
+    const cityName = city;
     const latitude = Number(lat);
     const longitude = Number(lon);
     if (!abbr || !cityName || !Number.isFinite(latitude) || !Number.isFinite(longitude)) continue;
@@ -275,7 +299,7 @@ function StateDetailMap({ state, locations }: { state: StateRecord; locations: L
       return <a
         key={city.name}
         className={`state-place${isCapital ? " state-place-capital" : ""}`}
-        href={wikiUrl(city.name)}
+        href={cityWikiUrl(city.name, state)}
         target="_blank"
         rel="noreferrer"
         aria-label={`Open ${city.name} on Wikipedia`}
@@ -284,14 +308,14 @@ function StateDetailMap({ state, locations }: { state: StateRecord; locations: L
           ? <text className="state-capital-star" x={city.x} y={city.y + 7} textAnchor="middle">★</text>
           : <circle cx={city.x} cy={city.y} r="5" />}
         <text className="state-place-label" x={city.x + offset.dx} y={city.y + offset.dy} textAnchor={offset.anchor}>
-          {isCapital ? `${city.name} · capital / #${city.index + 1}` : `${city.index + 1}. ${city.name}`}
+          {isCapital ? `${city.name} · capital` : city.name}
         </text>
         <title>{city.name}{isCapital ? `, capital of ${state.name}` : `, ${state.name}`}</title>
       </a>;
     })}
     {capitalProjected && !capitalInCities && <a
       className="state-place state-place-capital"
-      href={wikiUrl(state.capital)}
+      href={cityWikiUrl(state.capital, state)}
       target="_blank"
       rel="noreferrer"
       aria-label={`Open ${state.capital} on Wikipedia`}
@@ -307,7 +331,7 @@ export default function Home() {
   const [previewState, setPreviewState] = useState<StateRecord | null>(null);
   const [detailState, setDetailState] = useState<StateRecord | null>(null);
   const [showSalRoute, setShowSalRoute] = useState(false);
-  const [selectedRouteStop, setSelectedRouteStop] = useState<RouteStop | null>(null);
+  const [selectedRouteStop, setSelectedRouteStop] = useState<RoutePoint | null>(null);
   const [randomDestination, setRandomDestination] = useState<RandomDestination | null>(null);
   const cityLocations = useCityLocations();
   const famousDestinations = famousDestinationSeeds.flatMap(([city, stateAbbr]) => {
@@ -377,8 +401,8 @@ export default function Home() {
                   <p>Your next American chapter</p>
                   <h4>{randomDestination.city}<span>{randomDestination.state.abbr}</span></h4>
                   <div>
-                    <a href={wikiUrl(randomDestination.city)} target="_blank" rel="noreferrer">Wikipedia ↗</a>
-                    <a href={youtubeUrl(`travel in ${randomDestination.city} ${randomDestination.state.name}`)} target="_blank" rel="noreferrer">YouTube ↗</a>
+                    <a href={cityWikiUrl(randomDestination.city, randomDestination.state)} target="_blank" rel="noreferrer">Wikipedia ↗</a>
+                    <a href={cityYoutubeUrl(randomDestination.city, randomDestination.state)} target="_blank" rel="noreferrer">YouTube ↗</a>
                     <FavoriteButton item={cityFavorite(randomDestination.city, randomDestination.state)} />
                   </div>
                 </> : <p>Press the button and let the map choose for you.</p>}
@@ -399,7 +423,7 @@ function RouteStopCard({ stop }: { stop: RoutePoint | null }) {
   return <aside className="route-stop-card" aria-live="polite">
     <p className="eyebrow">ON THE ROAD · ROUTE STOP</p>
     <h3>{stop.city}<span>{stop.state}</span></h3>
-    <div className="route-city-actions">{wikipedia && <a href={wikipedia} target="_blank" rel="noreferrer">Wikipedia ↗</a>}<a href={youtubeUrl(`travel in ${stop.city}, ${stop.state}`)} target="_blank" rel="noreferrer">YouTube ↗</a></div>
+    <div className="route-city-actions">{wikipedia && <a href={wikipedia} target="_blank" rel="noreferrer">Wikipedia ↗</a>}<a href={youtubeUrl(`travel in ${stop.city}, ${stop.state}, USA`)} target="_blank" rel="noreferrer">YouTube ↗</a></div>
   </aside>;
 }
 
@@ -419,8 +443,8 @@ function StateCallout({ state, onClose, onExplore }: { state: StateRecord; onClo
     <h3>{state.name}<span>{state.abbr}</span></h3>
     <p>{state.region} region · capital: {state.capital}</p>
     <div className="callout-actions">
-      <a href={wikiUrl(state.name)} target="_blank" rel="noreferrer">Wikipedia ↗</a>
-      <a href={youtubeUrl(`travel in ${state.name}`)} target="_blank" rel="noreferrer">YouTube ↗</a>
+      <a href={stateWikiUrl(state)} target="_blank" rel="noreferrer">Wikipedia ↗</a>
+      <a href={stateYoutubeUrl(state)} target="_blank" rel="noreferrer">YouTube ↗</a>
       <button onClick={onExplore}>Open state map →</button>
       <FavoriteButton item={stateFavorite(state)} />
     </div>
@@ -437,8 +461,8 @@ function Detail({ state, locations, onBack }: { state: StateRecord; locations: L
           <div className="state-title-line"><h2>{state.name}</h2><span>{state.abbr}</span></div>
           <p className="state-region">{state.region} region · capital: {state.capital}</p>
           <div className="action-row">
-            <a className="action primary" href={wikiUrl(state.name)} target="_blank" rel="noreferrer">Read the story <span>↗</span><small>Wikipedia guide</small></a>
-            <a className="action secondary" href={youtubeUrl(`travel in ${state.name}`)} target="_blank" rel="noreferrer">See it in motion <span>↗</span><small>YouTube search</small></a>
+            <a className="action primary" href={stateWikiUrl(state)} target="_blank" rel="noreferrer">Read the story <span>↗</span><small>Wikipedia guide</small></a>
+            <a className="action secondary" href={stateYoutubeUrl(state)} target="_blank" rel="noreferrer">See it in motion <span>↗</span><small>YouTube search</small></a>
             <FavoriteButton item={stateFavorite(state)} className="detail-favorite" />
           </div>
         </div>
@@ -449,10 +473,10 @@ function Detail({ state, locations, onBack }: { state: StateRecord; locations: L
         </div>
       </div>
       <div className="city-list">
-        <div><p className="eyebrow">THE CITY INDEX</p><h3>Ten places to start</h3><p className="data-note">Largest cities by 2020 Census city-proper population ordering; coordinates load from a public US city gazetteer.</p></div>
+        <div><p className="eyebrow">THE CITY INDEX</p><h3>Ten places to start</h3><p className="data-note">Ten curated major population centers; coordinates load from a public US city gazetteer and local corrections.</p></div>
         <div className="city-columns">
-          <div className="capital-row"><span className="city-rank">CAPITAL</span><strong>{state.capital}</strong><a href={wikiUrl(state.capital)} target="_blank" rel="noreferrer">Wiki ↗</a><a href={youtubeUrl(`travel in ${state.capital} ${state.name}`)} target="_blank" rel="noreferrer">YouTube ↗</a><FavoriteButton item={cityFavorite(state.capital, state)} showLabel={false} /></div>
-          {state.cities.map((city, index) => <div className="city-row" key={city.name}><span className="city-rank">{String(index + 1).padStart(2, "0")}</span><strong>{city.name}</strong><a href={wikiUrl(city.name)} target="_blank" rel="noreferrer">Wiki ↗</a><a href={youtubeUrl(`travel in ${city.name} ${state.name}`)} target="_blank" rel="noreferrer">YouTube ↗</a><FavoriteButton item={cityFavorite(city.name, state)} showLabel={false} /></div>)}
+          <div className="capital-row"><span className="city-rank">CAPITAL</span><strong>{state.capital}</strong><a href={cityWikiUrl(state.capital, state)} target="_blank" rel="noreferrer">Wiki ↗</a><a href={cityYoutubeUrl(state.capital, state)} target="_blank" rel="noreferrer">YouTube ↗</a><FavoriteButton item={cityFavorite(state.capital, state)} showLabel={false} /></div>
+          {state.cities.map((city, index) => <div className="city-row" key={city.name}><span className="city-rank">{String(index + 1).padStart(2, "0")}</span><strong>{city.name}</strong><a href={cityWikiUrl(city.name, state)} target="_blank" rel="noreferrer">Wiki ↗</a><a href={cityYoutubeUrl(city.name, state)} target="_blank" rel="noreferrer">YouTube ↗</a><FavoriteButton item={cityFavorite(city.name, state)} showLabel={false} /></div>)}
         </div>
       </div>
     </section>
@@ -474,3 +498,4 @@ function HistoryCover() {
     </div>
   </section>;
 }
+

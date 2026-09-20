@@ -379,7 +379,7 @@ export const historyChapters: HistoryChapter[] = [
         image: "/history/23-hip-hop.jpg",
         imageAlt: "1520 Sedgwick Avenue in the Bronx",
         imageSource: "https://commons.wikimedia.org/wiki/File:1520_Sedwick_Ave.,_Bronx,_New_York1.JPG",
-        learnUrl: "https://www.si.edu/spotlight/hip-hop-rap-dia",
+        learnUrl: "https://www.si.edu/spotlight/hip-hop-rap",
         mapQuery: "1520 Sedgwick Avenue Bronx New York",
       },
     ],
@@ -413,3 +413,4 @@ export const historyPlaces = historyChapters.flatMap((chapter) => chapter.places
 export function historyMapUrl(query: string) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
+

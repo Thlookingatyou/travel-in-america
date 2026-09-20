@@ -19,6 +19,7 @@ The homepage centers on a clickable administrative map of all 50 states. Selecti
 
 - [app/page.tsx](app/page.tsx) contains the main atlas, state exploration, literary route, random chooser, and history cover.
 - [app/data.ts](app/data.ts) contains the 50 states, capitals, regions, and featured cities.
+- [app/links.ts](app/links.ts) is the single link registry for state/city Wikipedia titles and YouTube searches.
 - [app/history/history-data.ts](app/history/history-data.ts) contains every history chapter and place shown in the gallery.
 - [app/history/HistoryPageClient.tsx](app/history/HistoryPageClient.tsx) renders the scrollable history experience.
 - [app/favorites.tsx](app/favorites.tsx) manages the reusable favorites drawer and device-local storage.
@@ -29,7 +30,7 @@ The homepage centers on a clickable administrative map of all 50 states. Selecti
 
 ## Updating atlas content
 
-Edit [app/data.ts](app/data.ts) to change a state, capital, region, or featured city. Wikipedia and YouTube URLs are generated centrally in [app/page.tsx](app/page.tsx), so link-format changes stay in one place.
+Edit [app/data.ts](app/data.ts) to change a state, capital, region, or featured city. Wikipedia and YouTube URLs are generated centrally in [app/links.ts](app/links.ts), so link-format changes stay in one place. State-specific titles are used for ambiguous articles such as Georgia, Washington, and New York, and city links include their state when needed.
 
 City names must match the coordinate records in [public/us-cities.csv](public/us-cities.csv) or [public/us-city-overrides.csv](public/us-city-overrides.csv). Coordinates are projected through the same geographic projection as the relevant map.
 
@@ -76,3 +77,4 @@ pnpm run lint
 ~~~
 
 The project uses a Cloudflare-compatible Vinext/Sites build. GitHub stores the source, while Sites publishes the live website.
+
