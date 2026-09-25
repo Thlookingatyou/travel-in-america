@@ -20,6 +20,7 @@ The homepage centers on a clickable administrative map of all 50 states. Selecti
 - [app/page.tsx](app/page.tsx) contains the main atlas, state exploration, literary route, random chooser, and history cover.
 - [app/data.ts](app/data.ts) contains the 50 states, capitals, regions, and featured cities.
 - [app/links.ts](app/links.ts) is the single link registry for state/city Wikipedia titles and YouTube searches.
+- [app/route-data.ts](app/route-data.ts) holds the ordered literary stops, verified longitude/latitude pairs, and Wikipedia titles.
 - [app/history/history-data.ts](app/history/history-data.ts) contains every history chapter and place shown in the gallery.
 - [app/history/HistoryPageClient.tsx](app/history/HistoryPageClient.tsx) renders the scrollable history experience.
 - [app/favorites.tsx](app/favorites.tsx) manages the reusable favorites drawer and device-local storage.
@@ -33,6 +34,8 @@ The homepage centers on a clickable administrative map of all 50 states. Selecti
 Edit [app/data.ts](app/data.ts) to change a state, capital, region, or featured city. Wikipedia and YouTube URLs are generated centrally in [app/links.ts](app/links.ts), so link-format changes stay in one place. State-specific titles are used for ambiguous articles such as Georgia, Washington, and New York, and city links include their state when needed.
 
 City names must match the coordinate records in [public/us-cities.csv](public/us-cities.csv) or [public/us-city-overrides.csv](public/us-city-overrides.csv). Coordinates are projected through the same geographic projection as the relevant map.
+
+To revise Sal Paradise’s route, edit [app/route-data.ts](app/route-data.ts). Its points are stored as `[longitude, latitude]` in WGS84 decimal degrees. City markers use the USGS GNIS primary populated-place points, not a city-boundary centroid; the Bear Mountain stop marks the Bear Mountain Bridge on U.S. Route 6. The national map renders its boundaries, route, and markers with one shared projection after geographic data loads.
 
 The random-city collection is the `famousDestinationSeeds` list in [app/page.tsx](app/page.tsx).
 
@@ -55,7 +58,7 @@ Favorites are intentionally private to the visitor’s current browser and devic
 
 ## Sources
 
-State boundaries derive from public U.S. geographic data, while the city coordinate files are stored locally to avoid a runtime mapping dependency. History explanations link to the National Park Service, National Archives, UNESCO, Smithsonian, and relevant site organizations. Historical images are stored locally and retain source links beside their gallery entries; many are public-domain or openly licensed Wikimedia Commons records.
+State boundaries derive from public U.S. geographic data, while the city coordinate files are stored locally to avoid a runtime mapping dependency. Literary-route city coordinates were checked on 25 September 2026 against the [USGS National Map GNIS Populated Places layer](https://carto.nationalmap.gov/arcgis/rest/services/geonames/MapServer/3), and the [Bear Mountain Bridge](https://nysba.ny.gov/bridge/bear-mountain) stop uses the bridge’s published coordinates. History explanations link to the National Park Service, National Archives, UNESCO, Smithsonian, and relevant site organizations. Historical images are stored locally and retain source links beside their gallery entries; many are public-domain or openly licensed Wikimedia Commons records.
 
 ## Run locally
 
@@ -77,4 +80,3 @@ pnpm run lint
 ~~~
 
 The project uses a Cloudflare-compatible Vinext/Sites build. GitHub stores the source, while Sites publishes the live website.
-
