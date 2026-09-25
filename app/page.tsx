@@ -9,11 +9,11 @@ import { useCallback, useEffect, useState } from "react";
 import { stateByAbbr, stateByName, type StateRecord } from "./data";
 import { FavoriteButton, FavoritesTrigger, type FavoriteItem } from "./favorites";
 import { cityWikiUrl, cityYoutubeUrl, stateWikiUrl, stateYoutubeUrl, wikiUrl, youtubeUrl } from "./links";
+import { salParadiseRoute, type RouteStop } from "./route-data";
 import "./map.css";
 
 type CityLocation = { name: string; lat: number; lon: number };
 type LocationMap = Map<string, CityLocation>;
-type RouteStop = { city: string; state: string; coordinates: [number, number]; wikiSlug?: string | null };
 type RoutePoint = RouteStop & { x: number; y: number; index: number };
 type RandomDestination = CityLocation & { city: string; state: StateRecord };
 type Position = [number, number];
@@ -23,29 +23,6 @@ type GeoGeometry =
   | { type: "MultiPolygon"; coordinates: PolygonCoordinates[] };
 type GeoFeature = { type: "Feature"; properties?: { name?: string }; geometry: GeoGeometry };
 type GeoCollection = { type: "FeatureCollection"; features: GeoFeature[] };
-
-const salParadiseRoute: RouteStop[] = [
-  { city: "New York City", state: "NY", coordinates: [-74.006, 40.7128], wikiSlug: "New_York_City" },
-  { city: "Paterson", state: "NJ", coordinates: [-74.167141, 40.914273], wikiSlug: "Paterson,_New_Jersey" },
-  { city: "Bear Mountain", state: "NY", coordinates: [-73.996108, 41.306734], wikiSlug: "Bear_Mountain_(mountain)" },
-  { city: "Chicago", state: "IL", coordinates: [-87.618123, 41.885847], wikiSlug: "Chicago" },
-  { city: "Joliet", state: "IL", coordinates: [-88.08241, 41.527154], wikiSlug: "Joliet,_Illinois" },
-  { city: "Davenport", state: "IA", coordinates: [-90.5743, 41.5218], wikiSlug: "Davenport,_Iowa" },
-  { city: "Des Moines", state: "IA", coordinates: [-93.6088, 41.6005], wikiSlug: "Des_Moines" },
-  { city: "Council Bluffs", state: "IA", coordinates: [-95.880992, 41.252954], wikiSlug: "Council_Bluffs,_Iowa" },
-  { city: "Omaha", state: "NE", coordinates: [-95.9376, 41.261], wikiSlug: "Omaha,_Nebraska" },
-  { city: "North Platte", state: "NE", coordinates: [-100.774631, 41.132595], wikiSlug: "North_Platte,_Nebraska" },
-  { city: "Cheyenne", state: "WY", coordinates: [-104.796234, 41.143719], wikiSlug: "Cheyenne,_Wyoming" },
-  { city: "Denver", state: "CO", coordinates: [-105.007985, 39.840562], wikiSlug: "Denver" },
-  { city: "Central City", state: "CO", coordinates: [-105.513611, 39.801944], wikiSlug: "Central_City,_Colorado" },
-  { city: "Denver", state: "CO", coordinates: [-105.007985, 39.840562], wikiSlug: "Denver" },
-  { city: "Salt Lake City", state: "UT", coordinates: [-111.896657, 40.755851], wikiSlug: "Salt_Lake_City" },
-  { city: "Reno", state: "NV", coordinates: [-119.811275, 39.526812], wikiSlug: "Reno,_Nevada" },
-  { city: "Sacramento", state: "CA", coordinates: [-121.4933, 38.5816], wikiSlug: "Sacramento,_California" },
-  { city: "San Francisco", state: "CA", coordinates: [-122.4183, 37.775], wikiSlug: "San_Francisco" },
-  { city: "Los Angeles", state: "CA", coordinates: [-118.247896, 33.973093], wikiSlug: "Los_Angeles" },
-  { city: "Bakersfield", state: "CA", coordinates: [-119.017063, 35.386611], wikiSlug: "Bakersfield, California" },
-];
 
 const famousDestinationSeeds: [city: string, stateAbbr: string][] = [
   ["New York City", "NY"], ["Boston", "MA"], ["Philadelphia", "PA"], ["Pittsburgh", "PA"],
@@ -186,8 +163,8 @@ function StateMap({ selected, interactive, onSelect, className = "", routeVisibl
   const projection = geography
     ? geoAlbersUsa().fitSize([959, 593], geography as never)
     : geoAlbersUsa();
-  const routePoints = projectRoute(projection);
-  const randomPoint = randomDestination ? projection([randomDestination.lon, randomDestination.lat]) : null;
+  const routePoints = geography ? projectRoute(projection) : [];
+  const randomPoint = geography && randomDestination ? projection([randomDestination.lon, randomDestination.lat]) : null;
   const pathGenerator = geoPath(projection);
   const states = geography
     ? geography.features.flatMap((feature) => {
@@ -201,7 +178,7 @@ function StateMap({ selected, interactive, onSelect, className = "", routeVisibl
     });
 
   return <div className={`map-svg-wrap ${className}`}>
-    <svg viewBox={usaMap.viewBox} role="img" aria-label={selected ? `Map highlighting ${selected.name}` : "Interactive administrative map of the United States"}>
+    <svg viewBox={geography ? "0 0 959 593" : usaMap.viewBox} role="img" aria-label={selected ? `Map highlighting ${selected.name}` : "Interactive administrative map of the United States"}>
       {states.map(({ state, path }) => {
         const choose = () => interactive && onSelect?.(state);
         return <path
@@ -223,7 +200,7 @@ function StateMap({ selected, interactive, onSelect, className = "", routeVisibl
           <title>{state.name}</title>
         </path>;
       })}
-      {routeVisible && <g className="sal-route-overlay" aria-label="Sal Paradise first trip west">
+      {routeVisible && geography && <g className="sal-route-overlay" aria-label="Sal Paradise first trip west">
         <path className="sal-route-line" d={routePoints.map((point, index) => `${index ? "L" : "M"}${point.x} ${point.y}`).join(" ")} />
         {routePoints.map((point) => {
           const choose = () => onRouteSelect?.(point);
@@ -498,4 +475,3 @@ function HistoryCover() {
     </div>
   </section>;
 }
-
