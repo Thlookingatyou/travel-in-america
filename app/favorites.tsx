@@ -1,6 +1,9 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { stateByAbbr, stateByName } from "./data";
+import { historyPlaces } from "./history/history-data";
+import { cityWikiUrl, stateWikiUrl } from "./links";
 import "./favorites.css";
 
 export type FavoriteItem = {
@@ -21,10 +24,27 @@ type FavoritesContextValue = {
 const STORAGE_KEY = "travel-in-america:favorites:v1";
 const FavoritesContext = createContext<FavoritesContextValue | null>(null);
 
+// Keep previously saved places pointed at the current link registry after maintenance.
+function refreshFavoriteLink(item: FavoriteItem): FavoriteItem {
+  if (item.type === "state") {
+    const state = stateByAbbr.get(item.id.replace(/^state:/, ""));
+    if (state) return { ...item, href: stateWikiUrl(state) };
+  } else if (item.type === "city") {
+    const state = stateByName.get(item.subtitle);
+    if (state) return { ...item, href: cityWikiUrl(item.label, state) };
+  } else if (item.type === "history") {
+    const place = historyPlaces.find((place) => item.id === `history:${place.id}`);
+    if (place) return { ...item, href: place.learnUrl };
+  }
+  return item;
+}
+
 function readSavedFavorites(): FavoriteItem[] {
   try {
     const parsed = JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? "[]");
-    return Array.isArray(parsed) ? parsed.filter((item) => item?.id && item?.label && item?.href) : [];
+    return Array.isArray(parsed)
+      ? parsed.filter((item) => typeof item?.id === "string" && typeof item?.label === "string" && typeof item?.href === "string").map(refreshFavoriteLink)
+      : [];
   } catch {
     return [];
   }

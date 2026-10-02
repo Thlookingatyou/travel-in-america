@@ -74,7 +74,7 @@ export const historyChapters: HistoryChapter[] = [
         image: "/history/03-continental-congress.jpg",
         imageAlt: "Carpenters’ Hall in Philadelphia",
         imageSource: "https://commons.wikimedia.org/wiki/File:Carpenters%27_Hall,_Philadelphia,_U.S.,_May_2015.jpg",
-      learnUrl: "https://www.nps.gov/places/000/carpenters-hall.htm",
+        learnUrl: "https://www.nps.gov/places/000/carpenters-hall.htm",
         mapQuery: "Carpenters Hall Philadelphia Pennsylvania",
       },
       {
@@ -379,7 +379,7 @@ export const historyChapters: HistoryChapter[] = [
         image: "/history/23-hip-hop.jpg",
         imageAlt: "1520 Sedgwick Avenue in the Bronx",
         imageSource: "https://commons.wikimedia.org/wiki/File:1520_Sedwick_Ave.,_Bronx,_New_York1.JPG",
-        learnUrl: "https://www.si.edu/spotlight/hip-hop-rap",
+        learnUrl: "https://nmaahc.si.edu/explore/stories/hip-hop-bronx",
         mapQuery: "1520 Sedgwick Avenue Bronx New York",
       },
     ],
@@ -413,4 +413,3 @@ export const historyPlaces = historyChapters.flatMap((chapter) => chapter.places
 export function historyMapUrl(query: string) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
-
