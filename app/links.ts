@@ -22,7 +22,12 @@ const cityWikiTitles: Record<string, string> = {
   "TX:Houston": "Houston",
   "TX:San Antonio": "San Antonio",
   "MO:St. Louis": "St. Louis",
-  "MN:Saint Paul": "Saint Paul",
+  "MN:Saint Paul": "Saint Paul, Minnesota",
+  "NJ:Hamilton": "Hamilton Township, Mercer County, New Jersey",
+  "VT:Rutland": "Rutland (city), Vermont",
+  "VT:Barre": "Barre (city), Vermont",
+  "VT:St. Albans": "St. Albans (city), Vermont",
+  "VT:Newport": "Newport (city), Vermont",
   "LA:New Orleans": "New Orleans",
   "HI:Honolulu": "Honolulu",
   "AK:Anchorage": "Anchorage",
@@ -42,4 +47,3 @@ export const cityWikiUrl = (city: string, state: Pick<StateRecord, "name" | "abb
 export const youtubeUrl = (query: string) => `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
 export const stateYoutubeUrl = (state: Pick<StateRecord, "name">) => youtubeUrl(`travel in ${state.name}, USA`);
 export const cityYoutubeUrl = (city: string, state: Pick<StateRecord, "name">) => youtubeUrl(`travel in ${city}, ${state.name}, USA`);
-
