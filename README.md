@@ -35,6 +35,8 @@ Edit [app/data.ts](app/data.ts) to change a state, capital, region, or featured 
 
 City names must match the coordinate records in [public/us-cities.csv](public/us-cities.csv) or [public/us-city-overrides.csv](public/us-city-overrides.csv). Coordinates are projected through the same geographic projection as the relevant map.
 
+When maintaining links, check both page availability and the article's subject: a successful response can still lead to a disambiguation page or the wrong person or place. City-title exceptions belong in `app/links.ts`; gallery history and image-source links belong in `app/history/history-data.ts`. Saved favorites refresh their destinations from these records when the visitor returns. See [MAINTENANCE.md](MAINTENANCE.md) for the latest audit and its limitations.
+
 To revise Sal Paradise’s route, edit [app/route-data.ts](app/route-data.ts). Its points are stored as `[longitude, latitude]` in WGS84 decimal degrees. City markers use the USGS GNIS primary populated-place points, not a city-boundary centroid; the Bear Mountain stop marks the Bear Mountain Bridge on U.S. Route 6. The national map renders its boundaries, route, and markers with one shared projection after geographic data loads.
 
 The random-city collection is the `famousDestinationSeeds` list in [app/page.tsx](app/page.tsx).
@@ -75,7 +77,7 @@ Open the local URL printed by the development server.
 
 ~~~bash
 pnpm run build
-node --test tests/rendered-html.test.mjs
+node --test tests/*.test.mjs
 pnpm run lint
 ~~~
 
